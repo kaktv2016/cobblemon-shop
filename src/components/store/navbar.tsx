@@ -20,7 +20,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { GlassButton } from '@/components/ui/glass-button';
 import { Avatar } from '@/components/ui/avatar';
-import { ThemeToggle } from '@/components/shared/theme-toggle';
 import { TransitionLink } from '@/components/shared/transition-link';
 import { useCart } from '@/components/shared/cart-context';
 import {
@@ -128,7 +127,6 @@ export function StoreNavbar() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <ThemeToggle className="hidden md:flex" />
             {/* ── เล่นเลย / Download button ── */}
             <Link
               href="/download"
@@ -216,8 +214,6 @@ export function StoreNavbar() {
 
         {isOpen && (
           <div className="space-y-2 border-t border-white/8 pb-5 pt-4 lg:hidden">
-            <ThemeToggle layout="stacked" className="mb-3 w-full" />
-
             {navLinks.map((link) => {
               const Icon = link.icon;
 

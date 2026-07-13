@@ -45,12 +45,10 @@ const authInputClassName =
   "h-12 rounded-2xl border-white/10 bg-white/[0.04] px-4 text-base text-white placeholder:text-slate-500 focus-visible:border-cyan-300/30 focus-visible:ring-cyan-300/10";
 
 const helperSlotClass = "min-h-[1.25rem] text-xs leading-5 text-slate-500";
-const statusSlotClass = "min-h-[2rem] sm:min-h-[4.5rem]";
-const formViewportClass =
-  "flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 sm:pr-2 [scrollbar-width:thin]";
-const headerViewportClass =
-  "relative shrink-0 overflow-hidden min-h-0 sm:min-h-[12.25rem] lg:min-h-[13rem]";
-const formShellClass = "absolute inset-0 flex min-h-0 flex-col";
+const statusSlotClass = "pt-3 sm:pt-5";
+const formViewportClass = "pr-1 sm:pr-2";
+const headerViewportClass = "shrink-0";
+const formShellClass = "flex flex-col";
 
 const authCopy: Record<AuthMode, ModeCopy> = {
   login: {
@@ -368,7 +366,7 @@ function HeaderPane({
       <AnimatePresence mode="wait" initial={false}>
         <m.div
           key={mode}
-          className="absolute inset-0"
+          className=""
           initial={transitionProps.initial}
           animate={transitionProps.animate}
           exit={transitionProps.exit}
@@ -545,7 +543,7 @@ export function AuthStage({
 
   return (
     <LazyMotion features={domAnimation}>
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2 lg:pt-4">
+      <section className="flex flex-col pt-2 lg:pt-4">
         <HeaderPane
           mode={activeMode}
           copy={copy}
@@ -557,7 +555,7 @@ export function AuthStage({
           }}
         />
 
-        <div className={`${statusSlotClass} shrink-0 pt-5`}>
+        <div className={`${statusSlotClass} shrink-0`}>
           {isLoginMode ? (
             showRegisteredSuccess ? (
               <StatusBanner tone="success">
@@ -571,7 +569,7 @@ export function AuthStage({
           ) : null}
         </div>
 
-        <div className="relative mt-2 min-h-0 flex-1 overflow-hidden">
+        <div className="mt-2">
           <AnimatePresence mode="wait" initial={false}>
             {isLoginMode ? (
               <m.form
@@ -586,7 +584,7 @@ export function AuthStage({
               >
                 <fieldset
                   disabled={loginLoading}
-                  className="flex min-h-0 flex-1 flex-col border-0 p-0"
+                  className="flex flex-col border-0 p-0"
                 >
                   <div className={formViewportClass}>
                     <LoginFields
@@ -632,7 +630,7 @@ export function AuthStage({
               >
                 <fieldset
                   disabled={registerLoading}
-                  className="flex min-h-0 flex-1 flex-col border-0 p-0"
+                  className="flex flex-col border-0 p-0"
                 >
                   <div className={formViewportClass}>
                     <RegisterFields

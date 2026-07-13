@@ -16,9 +16,9 @@ export default function AuthLayout({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(129,140,248,0.15),transparent_24%),linear-gradient(180deg,#090318_0%,#050813_100%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_18%,rgba(56,189,248,0.06),transparent_16%),radial-gradient(circle_at_86%_12%,rgba(167,139,250,0.06),transparent_18%)]" />
 
-      <div className="relative z-[1] mx-auto flex min-h-screen max-w-7xl items-center px-4 py-5 sm:px-6 lg:px-8">
-        <div className="w-full overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(18,4,39,0.96)_0%,rgba(9,10,28,0.94)_100%)] shadow-[0_28px_120px_rgba(2,6,17,0.45)]">
-          <div className="grid min-h-[min(56rem,calc(100svh-2rem))] lg:grid-cols-[1.08fr_0.92fr]">
+      <div className="relative z-[1] mx-auto flex min-h-screen max-w-7xl items-center px-4 py-3 sm:px-6 sm:py-5 lg:px-8">
+        <div className="w-full overflow-hidden rounded-2xl sm:rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(18,4,39,0.96)_0%,rgba(9,10,28,0.94)_100%)] shadow-[0_28px_120px_rgba(2,6,17,0.45)]">
+          <div className="grid min-h-0 max-h-[calc(100svh-1.5rem)] sm:min-h-[min(56rem,calc(100svh-1.5rem))] lg:grid-cols-[1.08fr_0.92fr]">
             <section className="relative hidden overflow-hidden border-r border-white/8 lg:block">
               <Image
                 src="/images/backgrounds/login.png"
@@ -31,7 +31,7 @@ export default function AuthLayout({
               <div className="absolute inset-0 bg-gradient-to-r from-[#10031d]/12 via-transparent to-[#10031d]/18" />
             </section>
 
-            <section className="relative flex min-h-0 flex-col bg-[linear-gradient(180deg,rgba(15,8,31,0.74),rgba(8,10,26,0.92))]">
+            <section className="relative flex min-h-0 flex-col overflow-y-auto bg-[linear-gradient(180deg,rgba(15,8,31,0.74),rgba(8,10,26,0.92))]">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(125,211,252,0.07),transparent_18%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.08),transparent_20%)]" />
               <div className="absolute inset-0 opacity-[0.12] lg:hidden">
                 <Image
@@ -43,7 +43,7 @@ export default function AuthLayout({
                 />
               </div>
 
-              <div className="relative flex min-h-0 w-full flex-1 flex-col p-6 sm:p-8 lg:p-12">
+              <div className="relative flex min-h-0 w-full flex-1 flex-col p-4 sm:p-8 lg:p-12">
                 <div className="mb-8 hidden items-center justify-end lg:flex">
                   <TransitionLink
                     href="/"

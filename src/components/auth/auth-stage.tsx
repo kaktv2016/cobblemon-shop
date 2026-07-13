@@ -45,11 +45,11 @@ const authInputClassName =
   "h-12 rounded-2xl border-white/10 bg-white/[0.04] px-4 text-base text-white placeholder:text-slate-500 focus-visible:border-cyan-300/30 focus-visible:ring-cyan-300/10";
 
 const helperSlotClass = "min-h-[1.25rem] text-xs leading-5 text-slate-500";
-const statusSlotClass = "min-h-[4.5rem]";
+const statusSlotClass = "min-h-[2rem] sm:min-h-[4.5rem]";
 const formViewportClass =
   "flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 sm:pr-2 [scrollbar-width:thin]";
 const headerViewportClass =
-  "relative min-h-[11.75rem] shrink-0 overflow-hidden sm:min-h-[12.25rem] lg:min-h-[13rem]";
+  "relative shrink-0 overflow-hidden min-h-0 sm:min-h-[12.25rem] lg:min-h-[13rem]";
 const formShellClass = "absolute inset-0 flex min-h-0 flex-col";
 
 const authCopy: Record<AuthMode, ModeCopy> = {
@@ -545,7 +545,7 @@ export function AuthStage({
 
   return (
     <LazyMotion features={domAnimation}>
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2 lg:pt-4">
+      <section className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-2 lg:pt-4">
         <HeaderPane
           mode={activeMode}
           copy={copy}
@@ -571,7 +571,7 @@ export function AuthStage({
           ) : null}
         </div>
 
-        <div className="relative mt-2 min-h-0 flex-1 overflow-hidden">
+        <div className="relative mt-2 flex-1 min-h-[26rem] sm:min-h-[28rem]">
           <AnimatePresence mode="wait" initial={false}>
             {isLoginMode ? (
               <m.form

@@ -31,7 +31,7 @@ export default function AuthLayout({
               <div className="absolute inset-0 bg-gradient-to-r from-[#10031d]/12 via-transparent to-[#10031d]/18" />
             </section>
 
-            <section className="relative flex min-h-0 flex-col overflow-y-auto bg-[linear-gradient(180deg,rgba(15,8,31,0.74),rgba(8,10,26,0.92))]">
+            <section className="relative flex min-h-0 flex-col bg-[linear-gradient(180deg,rgba(15,8,31,0.74),rgba(8,10,26,0.92))]">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(125,211,252,0.07),transparent_18%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.08),transparent_20%)]" />
               <div className="absolute inset-0 opacity-[0.12] lg:hidden">
                 <Image

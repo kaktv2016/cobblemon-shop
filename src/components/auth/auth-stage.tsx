@@ -545,7 +545,7 @@ export function AuthStage({
 
   return (
     <LazyMotion features={domAnimation}>
-      <section className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-2 lg:pt-4">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2 lg:pt-4">
         <HeaderPane
           mode={activeMode}
           copy={copy}
@@ -571,7 +571,7 @@ export function AuthStage({
           ) : null}
         </div>
 
-        <div className="relative mt-2 flex-1 min-h-[26rem] sm:min-h-[28rem]">
+        <div className="relative mt-2 min-h-0 flex-1 overflow-hidden">
           <AnimatePresence mode="wait" initial={false}>
             {isLoginMode ? (
               <m.form

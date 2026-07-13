@@ -181,6 +181,16 @@ export function StoreNavbar() {
                   <DropdownMenuItem asChild>
                     <Link href="/account/settings">ตั้งค่าบัญชี</Link>
                   </DropdownMenuItem>
+                  {session.user?.roles?.includes('admin') && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin" className="text-cyan-400 font-medium hover:text-cyan-300">
+                          จัดการระบบ (Admin)
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-rose-200 hover:bg-rose-500/10 hover:text-white"
@@ -239,6 +249,17 @@ export function StoreNavbar() {
               <Download className="h-4 w-4 text-emerald-300" />
               <span className="text-sm font-semibold">เล่นเลย — ดาวน์โหลด & เริ่มเล่น</span>
             </Link>
+
+            {session?.user?.roles?.includes('admin') && (
+              <Link
+                href="/admin"
+                className="flex items-center gap-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/8 px-4 py-3 text-cyan-300 transition-colors hover:border-cyan-400/35 hover:bg-cyan-400/12"
+                onClick={() => setIsOpen(false)}
+              >
+                <Sparkles className="h-4 w-4 text-cyan-300" />
+                <span className="text-sm font-semibold">จัดการระบบ (Admin Dashboard)</span>
+              </Link>
+            )}
 
             {!session && (
               <div className="flex gap-3 pt-2">

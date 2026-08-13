@@ -43,6 +43,35 @@ function isMutationMethod(method: string): boolean {
   return ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 }
 
+function parseOrigin(value: string | null): string | null {
+  if (!value) return null;
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+function getAllowedOrigins(request: NextRequest): Set<string> {
+  const origins = new Set<string>();
+  origins.add(request.nextUrl.origin);
+
+  const configuredOrigin = parseOrigin(process.env.NEXTAUTH_URL || null);
+  if (configuredOrigin) origins.add(configuredOrigin);
+
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0].trim();
+  const host = forwardedHost || request.headers.get("host");
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0].trim();
+  const protocol = forwardedProto || request.nextUrl.protocol.replace(":", "");
+
+  if (host && (protocol === "http" || protocol === "https")) {
+    origins.add(`${protocol}://${host}`);
+  }
+
+  return origins;
+}
+
 /**
  * Same-origin validation for mutation requests.
  * NextAuth already performs its own CSRF checks for /api/auth/* routes,
@@ -55,16 +84,16 @@ function validateMutationOrigin(request: NextRequest): boolean {
     return true;
   }
 
-  const origin = request.headers.get("origin");
-  const referer = request.headers.get("referer");
-  const requestOrigin = request.nextUrl.origin;
+  const origin = parseOrigin(request.headers.get("origin"));
+  const refererOrigin = parseOrigin(request.headers.get("referer"));
+  const allowedOrigins = getAllowedOrigins(request);
 
   if (origin) {
-    return origin === requestOrigin;
+    return allowedOrigins.has(origin);
   }
 
-  if (referer) {
-    return referer.startsWith(requestOrigin);
+  if (refererOrigin) {
+    return allowedOrigins.has(refererOrigin);
   }
 
   // Allow non-browser callers that omit origin headers.

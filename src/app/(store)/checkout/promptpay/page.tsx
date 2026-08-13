@@ -98,12 +98,24 @@ export default function PromptPayCheckoutPage() {
       .finally(() => setLoadingOrder(false));
   }, [orderId]);
 
-  /* ── Poll order status until PAID ─────────────────────────────────── */
+  /* Poll Omise directly while this page is open, then fall back to order status. */
   useEffect(() => {
     if (!orderId || paid || expired) return;
 
     const id = setInterval(async () => {
       try {
+        const verifyResponse = await fetch('/api/store/payment/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId }),
+        });
+        const verifyData = await verifyResponse.json();
+        if (verifyData.status === 'PAID' || verifyData.status === 'QUEUED_DELIVERY') {
+          setPaid(true);
+          clearInterval(id);
+          return;
+        }
+
         const r = await fetch(`/api/store/orders/${orderId}`);
         const data = await r.json();
         if (data.status === 'PAID' || data.status === 'QUEUED_DELIVERY') {

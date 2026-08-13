@@ -1,157 +1,199 @@
-/**
- * RCON Delivery Adapter (Scaffold)
- *
- * This adapter integrates with Minecraft server RCON for direct command execution.
- * Currently a scaffold - requires installation of rcon-client package to complete.
- *
- * To complete implementation:
- * 1. npm install rcon-client
- * 2. Uncomment the import below
- * 3. Implement connection pooling and error handling
- *
- * Environment Variables Required:
- * - RCON_HOST: RCON server hostname/IP
- * - RCON_PORT: RCON server port (default 25575)
- * - RCON_PASSWORD: RCON server password
- */
-
-import { DeliveryAdapter, DeliveryResult, DeliveryContext } from './adapter';
-
-// TODO: Uncomment once rcon-client is installed
-// import { Rcon } from 'rcon-client';
+import { Rcon } from "rcon-client";
+import type {
+  DeliveryAdapter,
+  DeliveryContext,
+  DeliveryResult,
+} from "./adapter";
 
 interface RconConfig {
   host: string;
   port: number;
   password: string;
+  timeout: number;
+}
+
+const FAILURE_PATTERNS = [
+  /unknown (?:or incomplete )?command/i,
+  /incorrect argument/i,
+  /no player was found/i,
+  /player .* not found/i,
+  /cannot find player/i,
+  /requires (?:a )?player/i,
+  /exception|error executing/i,
+];
+
+const CONNECT_RETRY_DELAYS_MS = [0, 500, 1500];
+
+// Minecraft RCON servers are generally reliable with one request at a time.
+// Serialize connections across delivery jobs in this Node.js process.
+let rconExecutionQueue: Promise<void> = Promise.resolve();
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function runExclusive<T>(operation: () => Promise<T>): Promise<T> {
+  const result = rconExecutionQueue.then(operation, operation);
+  rconExecutionQueue = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
+function parsePositiveInteger(value: string | undefined, fallback: number) {
+  if (!value) return fallback;
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Invalid positive integer: ${value}`);
+  }
+
+  return parsed;
 }
 
 export class RconDeliveryAdapter implements DeliveryAdapter {
-  name = 'RCON (Minecraft Server)';
+  name = "RCON (Minecraft Server)";
 
-  private config: RconConfig;
-  // TODO: Implement connection pooling
-  // private connectionPool: Map<string, Rcon> = new Map();
+  private readonly config: RconConfig;
 
   constructor() {
-    const host = process.env.RCON_HOST;
-    const portStr = process.env.RCON_PORT;
+    const host = process.env.RCON_HOST?.trim();
     const password = process.env.RCON_PASSWORD;
 
-    // Validate configuration
     if (!host) {
-      throw new Error('RCON_HOST environment variable is required for RCON delivery adapter');
-    }
-
-    if (!portStr) {
-      throw new Error('RCON_PORT environment variable is required for RCON delivery adapter');
-    }
-
-    const port = parseInt(portStr, 10);
-    if (isNaN(port) || port < 1 || port > 65535) {
-      throw new Error(`Invalid RCON_PORT: ${portStr}. Must be a valid port number (1-65535).`);
+      throw new Error("RCON_HOST environment variable is required");
     }
 
     if (!password) {
-      throw new Error(
-        'RCON_PASSWORD environment variable is required for RCON delivery adapter'
-      );
+      throw new Error("RCON_PASSWORD environment variable is required");
     }
 
-    this.config = { host, port, password };
-  }
-
-  /**
-   * Execute a delivery command via RCON
-   *
-   * TODO: Implementation steps:
-   * 1. Get or create RCON connection (use connection pool)
-   * 2. Send command with timeout protection
-   * 3. Parse response
-   * 4. Return success/failure
-   * 5. Handle connection errors gracefully
-   */
-  async execute(command: string, context: DeliveryContext): Promise<DeliveryResult> {
-    // Validate inputs
-    if (!command || command.trim().length === 0) {
-      return {
-        success: false,
-        error: 'Command cannot be empty',
-      };
+    const port = parsePositiveInteger(process.env.RCON_PORT, 25575);
+    if (port > 65535) {
+      throw new Error("RCON_PORT must be between 1 and 65535");
     }
 
-    if (!context.playerName || context.playerName.trim().length === 0) {
-      return {
-        success: false,
-        error: 'Player name is required',
-      };
-    }
-
-    if (!context.playerUuid || context.playerUuid.trim().length === 0) {
-      return {
-        success: false,
-        error: 'Player UUID is required',
-      };
-    }
-
-    // SCAFFOLD: Placeholder until rcon-client is installed
-    return {
-      success: false,
-      error: `RCON adapter requires rcon-client package. Install it with: npm install rcon-client
-
-Configuration:
-- RCON_HOST: ${this.config.host}
-- RCON_PORT: ${this.config.port}
-- RCON_PASSWORD: [configured]
-
-Once installed, implement the following:
-1. Create/reuse RCON connection to ${this.config.host}:${this.config.port}
-2. Authenticate with configured password
-3. Send command: ${command}
-4. Parse server response
-5. Return success/failure based on response`,
+    this.config = {
+      host,
+      port,
+      password,
+      timeout: parsePositiveInteger(process.env.RCON_TIMEOUT_MS, 5000),
     };
   }
 
-  /**
-   * TODO: Get or create a connection from the pool
-   * This should include:
-   * - Connection reuse
-   * - Automatic reconnection on error
-   * - Timeout protection
-   * - Request queuing to prevent overwhelming the server
-   */
-  private async getConnection(): Promise<never> {
-    // Placeholder
-    throw new Error('RCON adapter not implemented - rcon-client package required');
+  async execute(command: string, context: DeliveryContext): Promise<DeliveryResult> {
+    const playerName = context.playerName.trim();
+    if (!/^[A-Za-z0-9_]{3,16}$/.test(playerName)) {
+      return { success: false, error: "Invalid Minecraft username" };
+    }
+
+    const normalizedCommand = command.trim().replace(/^\/+/, "");
+    if (!normalizedCommand || /[\r\n\0]/.test(normalizedCommand)) {
+      return { success: false, error: "RCON command must be a single non-empty line" };
+    }
+
+    return runExclusive(() => this.executeExclusive(normalizedCommand, playerName));
   }
 
-  /**
-   * TODO: Close all connections in the pool
-   */
-  async closeConnections(): Promise<void> {
-    // Placeholder
-    console.log('RCON pool cleanup would occur here');
+  private async connectWithRetry() {
+    let lastError: unknown;
+
+    for (const delay of CONNECT_RETRY_DELAYS_MS) {
+      if (delay > 0) await wait(delay);
+
+      try {
+        return await Rcon.connect({
+          host: this.config.host,
+          port: this.config.port,
+          password: this.config.password,
+          timeout: this.config.timeout,
+          maxPending: 1,
+        });
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Unable to connect to Minecraft RCON");
+  }
+
+  private async executeExclusive(
+    normalizedCommand: string,
+    playerName: string
+  ): Promise<DeliveryResult> {
+    let connection: Rcon | undefined;
+
+    try {
+      connection = await this.connectWithRetry();
+    } catch (error) {
+      return {
+        success: false,
+        kind: "connection",
+        error: error instanceof Error ? error.message : "Unable to connect to Minecraft RCON",
+      };
+    }
+
+    try {
+      let listResponse: string;
+      try {
+        listResponse = await connection.send("list");
+      } catch (error) {
+        return {
+          success: false,
+          kind: "connection",
+          error: error instanceof Error ? error.message : "Unable to query online players",
+        };
+      }
+
+      const onlinePlayers = this.parseOnlinePlayers(listResponse);
+      if (!onlinePlayers.some((name) => name.toLowerCase() === playerName.toLowerCase())) {
+        return {
+          success: false,
+          kind: "offline",
+          error: `Player ${playerName} is offline`,
+        };
+      }
+
+      let response: string;
+      try {
+        response = await connection.send(normalizedCommand);
+      } catch (error) {
+        // The command may already have executed. Never retry this automatically.
+        return {
+          success: false,
+          kind: "unknown",
+          error: error instanceof Error ? error.message : "RCON response was lost after command send",
+        };
+      }
+
+      if (FAILURE_PATTERNS.some((pattern) => pattern.test(response))) {
+        return {
+          success: false,
+          kind: "command_rejected",
+          error: response || "Minecraft server rejected the command",
+        };
+      }
+
+      return {
+        success: true,
+        response: response || "Command accepted by Minecraft RCON",
+      };
+    } finally {
+      await connection.end().catch(() => undefined);
+    }
+  }
+
+  private parseOnlinePlayers(response: string) {
+    const separator = response.indexOf(":");
+    if (separator === -1) return [];
+
+    return response
+      .slice(separator + 1)
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean);
   }
 }
-
-/**
- * Example of how to use once implemented:
- *
- * const adapter = new RconDeliveryAdapter();
- * const result = await adapter.execute(
- *   'give @p diamond 64',
- *   {
- *     playerName: 'Steve',
- *     playerUuid: 'uuid-here',
- *     orderId: 'order-123',
- *     isDryRun: false,
- *   }
- * );
- *
- * if (result.success) {
- *   console.log('Command executed:', result.response);
- * } else {
- *   console.error('Command failed:', result.error);
- * }
- */

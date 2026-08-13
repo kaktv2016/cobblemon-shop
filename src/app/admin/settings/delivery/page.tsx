@@ -30,6 +30,9 @@ const SAMPLE_DATA = {
   player_uuid: "550e8400-e29b-41d4-a716-446655440000",
   order_id: "ORD-001",
   product_id: "PROD-001",
+  product_slug: "rare-crate-key",
+  delivery_key: "rare",
+  delivery_amount: "5",
   quantity: "1",
 };
 
@@ -38,6 +41,9 @@ const ALLOWED_PLACEHOLDERS = [
   "player_uuid",
   "order_id",
   "product_id",
+  "product_slug",
+  "delivery_key",
+  "delivery_amount",
   "quantity",
 ];
 
@@ -470,6 +476,9 @@ export default function DeliveryTemplatesPage() {
                   {placeholder === "player_uuid" && "Minecraft UUID"}
                   {placeholder === "order_id" && "Order number"}
                   {placeholder === "product_id" && "Product identifier"}
+                  {placeholder === "product_slug" && "Store product slug"}
+                  {placeholder === "delivery_key" && "Server item/rank key from product metadata, or slug"}
+                  {placeholder === "delivery_amount" && "Configured delivery amount multiplied by order quantity"}
                   {placeholder === "quantity" && "Quantity ordered"}
                 </span>
               </div>

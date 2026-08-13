@@ -193,12 +193,12 @@ export default function AdminDeliveryPage() {
             {processing ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Processing...
+                Queuing...
               </>
             ) : (
               <>
                 <Play className="h-4 w-4" />
-                Process All ({stats.pending})
+                Queue Now ({stats.pending})
               </>
             )}
           </Button>
@@ -376,7 +376,7 @@ export default function AdminDeliveryPage() {
                                 {job.status === "PENDING" && (
                                   <DropdownMenuItem onClick={() => processJob(job.id)}>
                                     <Play className="mr-2 h-4 w-4" />
-                                    Process
+                                    Queue now
                                   </DropdownMenuItem>
                                 )}
                                 {job.status === "FAILED" && (

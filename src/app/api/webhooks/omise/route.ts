@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OmiseProvider } from '@/lib/payment/omise';
+import { assertPaymentAmount, startPaidOrderDelivery } from '@/lib/services/payment-delivery.service';
 
 /**
  * POST /api/webhooks/omise
@@ -43,6 +44,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
+      assertPaymentAmount(order.total, event.amount);
+
       // Idempotent — skip if already paid
       if (order.status === 'PENDING_PAYMENT') {
         await prisma.$transaction(async (tx) => {
@@ -80,6 +83,8 @@ export async function POST(request: NextRequest) {
       } else {
         console.log(`[Omise webhook] Order ${orderId} already ${order.status} — skipped`);
       }
+
+      await startPaidOrderDelivery(orderId);
     } else {
       console.warn(
         `[Omise webhook] ❌ Payment not successful — order ${orderId}, status: ${event.metadata?.status}`

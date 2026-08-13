@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { GBPrimePayProvider } from '@/lib/payment/gbprimepay';
+import { assertPaymentAmount, startPaidOrderDelivery } from '@/lib/services/payment-delivery.service';
 
 /**
  * POST /api/webhooks/gbprimepay
@@ -56,6 +57,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true }, { status: 200 });
       }
 
+      assertPaymentAmount(order.total, event.amount);
+
       // Idempotency — only update if still pending
       if (order.status === 'PENDING_PAYMENT') {
         await prisma.$transaction(async (tx) => {
@@ -93,6 +96,8 @@ export async function POST(request: NextRequest) {
       } else {
         console.log(`[GBPrimePay webhook] Order ${orderId} already in status ${order.status}, skipping`);
       }
+
+      await startPaidOrderDelivery(orderId);
     } else {
       // Payment failed
       console.warn(`[GBPrimePay webhook] Payment failed for order ${orderId} — resultCode: ${event.metadata?.resultCode}`);

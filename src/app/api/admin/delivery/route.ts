@@ -31,12 +31,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     if (body.action === "process_queue") {
-      const result = await DeliveryService.processQueue(body.batchSize || 10);
+      const result = await DeliveryService.wakePendingJobs(undefined, body.batchSize || 10);
       await prisma.auditLog.create({
         data: {
           userId: session.user.id,
           userEmail: session.user.email,
-          action: "PROCESS_DELIVERY_QUEUE",
+          action: "WAKE_DELIVERY_QUEUE",
           target: "delivery",
           details: result,
         },
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (body.action === "process_job" && body.jobId) {
-      const result = await DeliveryService.processDeliveryJob(body.jobId);
+      const result = await DeliveryService.wakePendingJobs(body.jobId, 1);
       return NextResponse.json(result);
     }
 

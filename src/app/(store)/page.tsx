@@ -165,7 +165,7 @@ export default async function HomePage() {
               delay={550}
               duration={900}
             >
-              ก้าวเข้าสู่รอยแยก ก่อนของรางวัลจะหายไป
+              ร้านค้าเซิร์ฟเวอร์ Cobblemon Divided สำหรับแรงก์ ไอเทมตกแต่ง กุญแจ กล่องรางวัล และของเด่นประจำซีซัน
             </AnimatedText>
 
             <FadeInSection delay={700} duration={800}>
@@ -205,7 +205,7 @@ export default async function HomePage() {
             </FadeInSection>
           </div>
 
-          {/* Pillars — staggered */}
+          {/* Pillars — staggered
           <div className="mt-16 grid gap-6 border-t border-white/10 pt-8 md:grid-cols-3">
             {pillarContent.map((pillar, i) => (
               <FadeInSection key={pillar.kicker} delay={200 + i * 150} distance={24}>
@@ -220,11 +220,11 @@ export default async function HomePage() {
                 </div>
               </FadeInSection>
             ))}
-          </div>
+          </div> */}
         </div>
       </section>
 
-      {/* ==================== WORLD SIGNAL ==================== */}
+      {/* ==================== WORLD SIGNAL ====================
       <section id="world" className="border-y border-white/6 bg-black/20">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:px-8">
           <FadeInSection direction="left" distance={40}>
@@ -259,9 +259,9 @@ export default async function HomePage() {
             </div>
           </FadeInSection>
         </div>
-      </section>
+      </section> */}
 
-      {/* ==================== DOWNLOAD STRIP ==================== */}
+      {/* ==================== DOWNLOAD STRIP ====================
       <FadeInSection distance={30} duration={700}>
         <Link
           href="/download"
@@ -287,7 +287,7 @@ export default async function HomePage() {
             </span>
           </div>
         </Link>
-      </FadeInSection>
+      </FadeInSection> */}
 
       {/* ==================== SPOTLIGHT ==================== */}
       {spotlight && (

@@ -18,6 +18,11 @@ interface ProductFormProps {
     name: string;
     slug: string;
   }>;
+  deliveryTemplates: Array<{
+    id: string;
+    name: string;
+    commandTemplate: string;
+  }>;
   initialData?: Partial<ProductFormSchemaType>;
   isEditMode?: boolean;
   productId?: string;
@@ -53,6 +58,7 @@ function normalizeOptionalNumber(value: unknown) {
 
 export function ProductForm({
   categories,
+  deliveryTemplates,
   initialData,
   isEditMode = false,
   productId,
@@ -350,6 +356,64 @@ export function ProductForm({
                 {errors.compareAtPrice.message}
               </p>
             ) : null}
+          </div>
+        </div>
+      </Card>
+
+      <Card className="border-slate-700 bg-slate-800/50 p-6">
+        <h2 className="mb-1 text-lg font-semibold text-white">In-game Delivery</h2>
+        <p className="mb-4 text-sm text-slate-400">
+          This command runs through RCON only after payment is confirmed.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-300">
+              Delivery Template
+            </label>
+            <select
+              {...register("deliveryTemplateId")}
+              className="h-10 w-full rounded-md border border-slate-600 bg-slate-900 px-3 text-white"
+            >
+              <option value="">No automatic delivery</option>
+              {deliveryTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name} — {template.commandTemplate}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-300">
+                Server Item / Rank Key
+              </label>
+              <Input
+                {...register("metadata.deliveryKey")}
+                placeholder="e.g. cobblemon:poke_ball or vip"
+                className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Used as {`{delivery_key}`}; falls back to the product slug.
+              </p>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-300">
+                Amount Per Purchase Unit
+              </label>
+              <Input
+                type="number"
+                min="0"
+                {...register("metadata.deliveryAmount", {
+                  setValueAs: normalizeOptionalNumber,
+                })}
+                placeholder="1"
+                className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Used as {`{delivery_amount}`} and multiplied by cart quantity.
+              </p>
+            </div>
           </div>
         </div>
       </Card>

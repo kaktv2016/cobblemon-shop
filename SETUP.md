@@ -52,9 +52,11 @@ DELIVERY_MODE="dry-run"
 WEBHOOK_DELIVERY_URL="https://your-server.com/api/deliver"
 
 # RCON delivery (if DELIVERY_MODE=rcon)
-RCON_HOST="localhost"
+RCON_HOST="127.0.0.1"
 RCON_PORT="25575"
-RCON_PASSWORD=""
+RCON_PASSWORD="replace-with-a-long-random-password"
+RCON_TIMEOUT_MS="5000"
+DELIVERY_CRON_SECRET="replace-with-another-long-random-secret"
 
 # Seed defaults (used during db:seed)
 ADMIN_EMAIL="admin@cobblemart.com"
@@ -212,15 +214,34 @@ The webhook sends POST requests with HMAC-SHA256 signed payloads.
 
 Direct Minecraft server communication:
 
-1. Install RCON client: `npm install rcon-client`
-2. Configure:
+1. Enable RCON in the Minecraft server's `server.properties`:
+   ```properties
+   enable-rcon=true
+   rcon.port=25575
+   rcon.password=replace-with-a-long-random-password
+   broadcast-rcon-to-ops=false
+   ```
+2. Restart the Minecraft server.
+3. Configure the web app. A domain is not required when both processes run on
+   the same machine:
    ```env
    DELIVERY_MODE="rcon"
-   RCON_HOST="your-mc-server.com"
+   RCON_HOST="127.0.0.1"
    RCON_PORT="25575"
-   RCON_PASSWORD="your-rcon-password"
+   RCON_PASSWORD="replace-with-the-same-password"
+   RCON_TIMEOUT_MS="5000"
+   DELIVERY_CRON_SECRET="replace-with-another-long-random-secret"
    ```
-3. Complete the scaffold in `src/lib/delivery/rcon.ts`
+4. Do not expose port `25575` publicly. If the web app is on another machine,
+   allow only the web server's private IP through the firewall.
+5. Start the web app and delivery worker together with `npm run dev` in
+   development or `npm run start` after a production build. Use
+   `npm run dev:web` only when intentionally running the web process alone.
+6. The worker checks whether the player is online and retries offline jobs
+   every 30 seconds without consuming a delivery attempt.
+7. The internal cron endpoint remains a recovery fallback. POST to
+   `/api/internal/delivery/process` with the header
+   `Authorization: Bearer <DELIVERY_CRON_SECRET>` from a local cron.
 
 ### Delivery Templates
 
@@ -232,6 +253,12 @@ Delivery templates use safe placeholders:
 - `{quantity}` — Purchase quantity
 
 Example: `lp user {player_name} parent set vip`
+
+Additional placeholders: `{product_slug}`, `{delivery_key}`, and
+`{delivery_amount}`. A recommended item template is
+`give {player_name} {delivery_key} {delivery_amount}`. The delivery key falls
+back to the product slug and the delivery amount is multiplied by the purchased
+quantity.
 
 Only these placeholders are allowed. The system rejects any other `{xxx}` patterns.
 
@@ -467,23 +494,21 @@ CMD ["npm", "start"]
 ## Known Limitations
 
 1. **No real payment provider**: Sandbox only. Stripe scaffold needs completion.
-2. **No RCON library**: The RCON adapter is a scaffold. Install `rcon-client` and complete.
+2. **Single-host delivery worker**: The persistent MySQL-backed worker is reliable
+   for the current self-hosted deployment, but multi-host scaling would benefit
+   from a dedicated queue such as BullMQ/Redis.
 3. **No email verification**: Registration doesn't send verification emails.
-4. **No image upload**: Product images use URL references, not file uploads.
-5. **No real-time updates**: Delivery status uses polling, not WebSockets.
-6. **No i18n**: Structured for it but not implemented. Add next-intl for Thai/English.
-7. **No background job processor**: Delivery queue is processed via API calls, not a persistent worker. For production, add Bull/BullMQ with Redis.
-8. **Session storage**: JWT-based. For production at scale, consider database sessions.
+4. **No real-time updates**: Delivery status uses polling, not WebSockets.
+5. **No i18n framework**: Thai copy is present, but locale routing is not implemented.
+6. **Session storage**: JWT-based. For production at scale, consider database sessions.
 
 ## Recommended Next Steps
 
 1. **Stripe Integration**: Complete `src/lib/payment/stripe.ts` with real Stripe SDK
-2. **RCON Integration**: Install `rcon-client`, complete `src/lib/delivery/rcon.ts`
-3. **Background Workers**: Add Bull/BullMQ for reliable delivery job processing
-4. **Email System**: Add SendGrid/Resend for order confirmations and verification
-5. **Image Upload**: Add file upload to S3/Cloudflare R2 for product images
-6. **Rate Limiting**: Add Redis-backed rate limiting (current is in-memory)
-7. **Monitoring**: Add error tracking (Sentry) and analytics
-8. **Testing**: Add unit tests for services, integration tests for API routes
-9. **i18n**: Add next-intl for Thai and English support
-10. **CDN**: Configure image optimization and CDN for static assets
+2. **Queue Scaling**: Add BullMQ/Redis only when delivery workers run on multiple hosts
+3. **Email System**: Add SendGrid/Resend for order confirmations and verification
+4. **Rate Limiting**: Add Redis-backed rate limiting (current is in-memory)
+5. **Monitoring**: Add error tracking (Sentry) and analytics
+6. **Testing**: Add unit tests for services, integration tests for API routes
+7. **i18n**: Add next-intl for Thai and English support
+8. **CDN**: Configure image optimization and CDN for static assets

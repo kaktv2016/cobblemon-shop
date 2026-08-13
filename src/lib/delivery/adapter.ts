@@ -5,15 +5,22 @@
  * Allows flexible switching between delivery implementations in production and testing.
  */
 
+export type DeliveryFailureKind =
+  | "offline"
+  | "connection"
+  | "command_rejected"
+  | "unknown";
+
 export interface DeliveryResult {
   success: boolean;
   response?: string;
   error?: string;
+  kind?: DeliveryFailureKind;
 }
 
 export interface DeliveryContext {
   playerName: string;
-  playerUuid: string;
+  playerUuid?: string;
   orderId: string;
   isDryRun: boolean;
 }
@@ -58,8 +65,10 @@ export function getDeliveryAdapter(): DeliveryAdapter {
       const { RconDeliveryAdapter } = require('./rcon');
       return new RconDeliveryAdapter();
 
-    case 'dry-run':
     default:
+      throw new Error(`Unsupported DELIVERY_MODE: ${mode}`);
+
+    case 'dry-run':
       // Lazy load to avoid import errors if dependencies aren't installed
       const { DryRunDeliveryAdapter } = require('./dry-run');
       return new DryRunDeliveryAdapter();

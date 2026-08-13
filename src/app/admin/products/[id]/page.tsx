@@ -16,7 +16,7 @@ export const metadata = {
 export default async function EditProductPage({ params }: ProductEditPageProps) {
   const { id } = await params;
 
-  const [product, categories] = await Promise.all([
+  const [product, categories, deliveryTemplates] = await Promise.all([
     prisma.product.findUnique({
       where: { id },
       include: {
@@ -39,6 +39,11 @@ export default async function EditProductPage({ params }: ProductEditPageProps) 
         slug: true,
       },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
+    prisma.deliveryTemplate.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, commandTemplate: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -66,6 +71,7 @@ export default async function EditProductPage({ params }: ProductEditPageProps) 
     startDate: product.startDate ? new Date(product.startDate).toISOString().slice(0, 16) : "",
     endDate: product.endDate ? new Date(product.endDate).toISOString().slice(0, 16) : "",
     deliveryTemplateId: product.deliveryTemplateId || "",
+    metadata: product.metadata as Record<string, unknown> | undefined,
     tags: product.tags.map((tag) => tag.tag),
     bundleItems: product.bundleItems.map((item) => ({
       productId: item.itemId,
@@ -82,6 +88,7 @@ export default async function EditProductPage({ params }: ProductEditPageProps) 
 
       <ProductForm
         categories={categories}
+        deliveryTemplates={deliveryTemplates}
         initialData={initialData}
         isEditMode={true}
         productId={id}

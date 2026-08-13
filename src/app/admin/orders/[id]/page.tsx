@@ -224,7 +224,7 @@ export default function AdminOrderDetailPage() {
       const response = await fetch("/api/admin/delivery", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId }),
+        body: JSON.stringify({ action: "retry", jobId }),
       });
 
       if (!response.ok) throw new Error("Failed to retry delivery");

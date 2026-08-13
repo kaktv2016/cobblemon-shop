@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { startPaidOrderDelivery } from '@/lib/services/payment-delivery.service';
 
 /**
  * POST /api/admin/orders/[id]/confirm-payment
@@ -81,10 +82,13 @@ export async function POST(
       });
     });
 
+    const delivery = await startPaidOrderDelivery(orderId);
+
     return NextResponse.json({
       success: true,
       message: 'ยืนยันการชำระเงินสำเร็จ',
       orderId,
+      delivery,
     });
   } catch (error: any) {
     console.error('Confirm payment error:', error);

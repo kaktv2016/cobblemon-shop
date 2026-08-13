@@ -3,9 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently --kill-others-on-fail --names web,delivery \"npm:dev:web\" \"npm:delivery:worker\"",
+    "dev:web": "next dev",
+    "delivery:worker": "tsx src/workers/delivery.worker.ts",
+    "delivery:worker:prod": "tsx src/workers/delivery.worker.ts --production",
     "build": "next build",
-    "start": "next start",
+    "start": "concurrently --kill-others-on-fail --names web,delivery \"npm:start:web\" \"npm:delivery:worker:prod\"",
+    "start:web": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css,md}\"",
@@ -25,6 +29,7 @@
     "bcrypt": "^5.1.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "concurrently": "^10.0.4",
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.408.0",
     "next": "15.5.15",
@@ -32,6 +37,7 @@
     "next-themes": "^0.4.6",
     "promptpay-qr": "^0.5.0",
     "qrcode": "^1.5.4",
+    "rcon-client": "^4.2.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.53.0",
@@ -39,6 +45,7 @@
     "recharts": "^3.8.1",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.2.0",
+    "tsx": "^4.23.12",
     "zod": "^3.23.0"
   },
   "devDependencies": {
@@ -53,7 +60,6 @@
     "prettier-plugin-tailwindcss": "^0.5.0",
     "prisma": "^6.0.0",
     "tailwindcss": "^3.4.0",
-    "tsx": "^4.19.0",
     "typescript": "^5.3.0"
   }
 }

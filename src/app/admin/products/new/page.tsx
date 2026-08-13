@@ -7,17 +7,18 @@ export const metadata = {
 };
 
 export default async function CreateProductPage() {
-  const categories = await prisma.category.findMany({
-    where: {
-      isActive: true,
-    },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-    },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-  });
+  const [categories, deliveryTemplates] = await Promise.all([
+    prisma.category.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, slug: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
+    prisma.deliveryTemplate.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, commandTemplate: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -26,7 +27,7 @@ export default async function CreateProductPage() {
         <p className="mt-1 text-slate-400">Add a new product to your shop</p>
       </div>
 
-      <ProductForm categories={categories} />
+      <ProductForm categories={categories} deliveryTemplates={deliveryTemplates} />
     </div>
   );
 }

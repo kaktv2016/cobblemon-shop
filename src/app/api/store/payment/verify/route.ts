@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { assertPaymentAmount, startPaidOrderDelivery } from '@/lib/services/payment-delivery.service';
 
 /**
  * POST /api/store/payment/verify
@@ -100,6 +101,7 @@ export async function POST(request: NextRequest) {
   const chargeStatus: string = charge.status; // 'successful' | 'pending' | 'failed' | 'expired'
 
   if (chargeStatus === 'successful') {
+    assertPaymentAmount(order.total, Number(charge.amount));
     // Update order + payment in a transaction (idempotent)
     await prisma.$transaction(async (tx) => {
       await tx.order.update({
@@ -128,7 +130,8 @@ export async function POST(request: NextRequest) {
     });
 
     console.log(`[verify] ✅ Order ${orderId} → PAID via manual verify (charge: ${chargeId})`);
-    return NextResponse.json({ status: 'PAID', chargeStatus, updated: true });
+    const delivery = await startPaidOrderDelivery(orderId);
+    return NextResponse.json({ status: 'PAID', chargeStatus, updated: true, delivery });
   }
 
   if (chargeStatus === 'failed' || chargeStatus === 'expired') {

@@ -27,6 +27,13 @@ interface PaymentTransaction {
   createdAt: string;
 }
 
+interface DeliveryJob {
+  orderItemId: string;
+  status: string;
+  error: string | null;
+  nextRetryAt: string | null;
+}
+
 interface Order {
   id: string;
   orderNumber: string;
@@ -40,6 +47,7 @@ interface Order {
   playerUuid: string | null;
   items: OrderItem[];
   payments: PaymentTransaction[];
+  deliveryJobs: DeliveryJob[];
   user: {
     username: string;
     email: string;
@@ -78,6 +86,38 @@ const deliveryStatusColors: Record<string, string> = {
   FAILED:    "bg-red-500/20 text-red-300",
 };
 
+function getDeliveryPresentation(item: OrderItem, jobs: DeliveryJob[]) {
+  const job = jobs.find((candidate) => candidate.orderItemId === item.id);
+  if (!job) {
+    return {
+      label: deliveryStatusLabels[item.deliveryStatus] ?? item.deliveryStatus,
+      color: deliveryStatusColors[item.deliveryStatus] || "bg-slate-700 text-slate-300",
+    };
+  }
+
+  if (job.status === "SUCCESS") {
+    return { label: "ส่งสำเร็จ", color: deliveryStatusColors.DELIVERED };
+  }
+  if (job.status === "PROCESSING") {
+    return { label: "กำลังส่ง", color: "bg-cyan-500/20 text-cyan-300" };
+  }
+  if (job.status === "FAILED") {
+    const needsReview = job.error?.startsWith("MANUAL_REVIEW_REQUIRED");
+    return {
+      label: needsReview ? "รอแอดมินตรวจสอบ" : "ส่งไม่สำเร็จ",
+      color: deliveryStatusColors.FAILED,
+    };
+  }
+  if (job.error?.startsWith("PLAYER_OFFLINE")) {
+    return { label: "รอผู้เล่นออนไลน์", color: "bg-amber-500/20 text-amber-300" };
+  }
+  if (job.error?.startsWith("CONNECTION_RETRY")) {
+    return { label: "รอเชื่อมต่อเซิร์ฟเวอร์", color: "bg-blue-500/20 text-blue-300" };
+  }
+
+  return { label: "รอส่ง", color: deliveryStatusColors.QUEUED };
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -105,22 +145,28 @@ export default function OrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchOrder() {
+    let active = true;
+    async function fetchOrder(showLoading = false) {
       try {
         const response = await fetch(`/api/store/orders/${orderId}`);
         if (!response.ok) {
           throw new Error("ไม่พบข้อมูลออเดอร์");
         }
         const data = await response.json();
-        setOrder(data);
+        if (active) setOrder(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+        if (active) setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
       } finally {
-        setLoading(false);
+        if (active && showLoading) setLoading(false);
       }
     }
 
-    fetchOrder();
+    void fetchOrder(true);
+    const interval = setInterval(() => void fetchOrder(), 5_000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, [orderId]);
 
   if (loading) {
@@ -260,7 +306,9 @@ export default function OrderDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {order.items.map((item) => (
+                  {order.items.map((item) => {
+                    const delivery = getDeliveryPresentation(item, order.deliveryJobs);
+                    return (
                     <tr key={item.id} className="border-b border-slate-700/50 hover:bg-slate-700/20">
                       <td className="px-4 py-3 text-slate-200">{item.productName}</td>
                       <td className="px-4 py-3 text-slate-200">{item.quantity}</td>
@@ -271,12 +319,12 @@ export default function OrderDetailPage() {
                         ฿{Number(item.totalPrice).toFixed(2)}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className={deliveryStatusColors[item.deliveryStatus] || "bg-slate-700 text-slate-300"}>
-                          {deliveryStatusLabels[item.deliveryStatus] ?? item.deliveryStatus}
+                        <Badge className={delivery.color}>
+                          {delivery.label}
                         </Badge>
                       </td>
                     </tr>
-                  ))}
+                  );})}
                 </tbody>
               </table>
             </div>

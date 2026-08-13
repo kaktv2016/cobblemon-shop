@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { XenditProvider } from '@/lib/payment/xendit';
+import { assertPaymentAmount, startPaidOrderDelivery } from '@/lib/services/payment-delivery.service';
 
 /**
  * POST /api/webhooks/xendit
@@ -41,6 +42,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
+      assertPaymentAmount(order.total, event.amount);
+
       // Idempotent — skip if already paid
       if (order.status === 'PENDING_PAYMENT') {
         await prisma.$transaction(async (tx) => {
@@ -78,6 +81,8 @@ export async function POST(request: NextRequest) {
       } else {
         console.log(`[Xendit webhook] Order ${orderId} already ${order.status} — skipped`);
       }
+
+      await startPaidOrderDelivery(orderId);
     } else {
       console.warn(`[Xendit webhook] ❌ Payment failed — order ${orderId}, event: ${event.metadata?.event}`);
       await prisma.auditLog.create({

@@ -79,7 +79,15 @@ function buildDeliveryCommand(
       ? unitDeliveryAmount * item.quantity
       : unitDeliveryAmount;
 
-  return renderTemplate(template.commandTemplate, {
+  // Older databases used the internal product CUID in vanilla give commands.
+  // Normalize only that legacy command shape so existing templates remain usable.
+  const commandTemplate = /^\s*\/?give\b/i.test(template.commandTemplate)
+    ? template.commandTemplate
+        .replaceAll("{product_id}", "{delivery_key}")
+        .replaceAll("{quantity}", "{delivery_amount}")
+    : template.commandTemplate;
+
+  return renderTemplate(commandTemplate, {
     player_name: order.playerName || "",
     player_uuid: order.playerUuid || "",
     order_id: order.id,

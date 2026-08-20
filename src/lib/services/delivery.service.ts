@@ -58,6 +58,39 @@ function renderTemplate(
   return result;
 }
 
+function buildDeliveryCommand(
+  template: { commandTemplate: string },
+  product: { slug: string; metadata: unknown },
+  item: { productId: string | null; quantity: number },
+  order: { id: string; playerName: string | null; playerUuid: string | null }
+) {
+  const deliveryKey = getMetadataValue(
+    product.metadata,
+    ["deliveryKey", "serverItem", "serverId"],
+    product.slug
+  );
+  const unitDeliveryAmount = getMetadataValue(
+    product.metadata,
+    ["deliveryAmount", "coinAmount", "amount"],
+    1
+  );
+  const deliveryAmount =
+    typeof unitDeliveryAmount === "number"
+      ? unitDeliveryAmount * item.quantity
+      : unitDeliveryAmount;
+
+  return renderTemplate(template.commandTemplate, {
+    player_name: order.playerName || "",
+    player_uuid: order.playerUuid || "",
+    order_id: order.id,
+    product_id: item.productId || "",
+    product_slug: product.slug,
+    delivery_key: deliveryKey,
+    delivery_amount: deliveryAmount,
+    quantity: item.quantity,
+  });
+}
+
 /**
  * Generate idempotency key for delivery deduplication
  */
@@ -117,31 +150,7 @@ export class DeliveryService {
       const product = item.product!;
       const template = product.deliveryTemplate!;
 
-      const deliveryKey = getMetadataValue(
-        product.metadata,
-        ["deliveryKey", "serverItem", "serverId"],
-        product.slug
-      );
-      const unitDeliveryAmount = getMetadataValue(
-        product.metadata,
-        ["deliveryAmount", "coinAmount", "amount"],
-        1
-      );
-      const deliveryAmount =
-        typeof unitDeliveryAmount === "number"
-          ? unitDeliveryAmount * item.quantity
-          : unitDeliveryAmount;
-
-      const renderedCommand = renderTemplate(template.commandTemplate, {
-        player_name: order.playerName,
-        player_uuid: order.playerUuid || "",
-        order_id: order.id,
-        product_id: item.productId || "",
-        product_slug: product.slug,
-        delivery_key: deliveryKey,
-        delivery_amount: deliveryAmount,
-        quantity: item.quantity,
-      });
+      const renderedCommand = buildDeliveryCommand(template, product, item, order);
 
       const idempotencyKey = generateIdempotencyKey(item.id, 0);
 
@@ -203,7 +212,16 @@ export class DeliveryService {
   static async processDeliveryJob(jobId: string) {
     const job = await prisma.deliveryJob.findUnique({
       where: { id: jobId },
-      include: { order: true, orderItem: true },
+      include: {
+        order: true,
+        orderItem: {
+          include: {
+            product: {
+              include: { deliveryTemplate: true },
+            },
+          },
+        },
+      },
     });
 
     if (!job) throw new Error(`Delivery job "${jobId}" not found`);
@@ -231,10 +249,30 @@ export class DeliveryService {
       return { success: false, message: "Delivery job is already being processed" };
     }
 
+    const currentProduct = job.orderItem.product;
+    const currentTemplate = currentProduct?.deliveryTemplate;
+    const commandToExecute =
+      currentProduct && currentTemplate?.isActive
+        ? buildDeliveryCommand(currentTemplate, currentProduct, job.orderItem, job.order)
+        : job.renderedCommand;
+
+    if (
+      commandToExecute !== job.renderedCommand ||
+      (currentTemplate && currentTemplate.id !== job.templateId)
+    ) {
+      await prisma.deliveryJob.update({
+        where: { id: jobId },
+        data: {
+          renderedCommand: commandToExecute,
+          ...(currentTemplate ? { templateId: currentTemplate.id } : {}),
+        },
+      });
+    }
+
     let result: DeliveryResult;
     try {
       const adapter = getDeliveryAdapter();
-      result = await adapter.execute(job.renderedCommand, {
+      result = await adapter.execute(commandToExecute, {
         playerName: job.order.playerName || "",
         playerUuid: job.order.playerUuid || undefined,
         orderId: job.orderId,
@@ -256,7 +294,7 @@ export class DeliveryService {
           jobId,
           attempt: newAttempts,
           status: "SUCCESS",
-          command: job.renderedCommand,
+          command: commandToExecute,
           response: result.response,
         },
       });
@@ -323,7 +361,7 @@ export class DeliveryService {
         jobId,
         attempt: newAttempts,
         status: "FAILED",
-        command: job.renderedCommand,
+        command: commandToExecute,
         error: errorMsg,
       },
     });

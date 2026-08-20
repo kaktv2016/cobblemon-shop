@@ -70,6 +70,9 @@ const ALLOWED_PLACEHOLDERS = [
   "player_uuid",
   "order_id",
   "product_id",
+  "product_slug",
+  "delivery_key",
+  "delivery_amount",
   "quantity",
 ] as const;
 

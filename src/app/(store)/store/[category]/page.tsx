@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, ChevronRight, Sparkles } from "lucide-react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { StoreProductTile } from "@/components/store/store-product-tile";
-import { getPublicCategoryPageData } from "@/lib/public-store-cache";
+import {
+  getPublicCategoryPageData,
+  getPublicProductPageData,
+} from "@/lib/public-store-cache";
 import { getCategoryTheme } from "@/lib/storefront";
 
 export const revalidate = 60;
@@ -38,6 +41,14 @@ export default async function CategoryPage({
   const data = await getPublicCategoryPageData(category);
 
   if (!data) {
+    const legacyProduct = await getPublicProductPageData(category);
+
+    if (legacyProduct) {
+      redirect(
+        `/store/${legacyProduct.product.category.slug}/${legacyProduct.product.slug}`
+      );
+    }
+
     notFound();
   }
   const { category: foundCategory, products } = data;

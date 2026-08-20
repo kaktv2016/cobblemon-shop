@@ -41,6 +41,11 @@ export class CartService {
             stockLimit: true,
             stockSold: true,
             productType: true,
+            category: {
+              select: {
+                slug: true,
+              },
+            },
           },
         },
       },
@@ -128,6 +133,11 @@ export class CartService {
               price: true,
               imageUrl: true,
               slug: true,
+              category: {
+                select: {
+                  slug: true,
+                },
+              },
             },
           },
         },
@@ -148,8 +158,13 @@ export class CartService {
             id: true,
             name: true,
             price: true,
-            imageUrl: true,
-            slug: true,
+              imageUrl: true,
+              slug: true,
+              category: {
+                select: {
+                  slug: true,
+                },
+              },
           },
         },
       },

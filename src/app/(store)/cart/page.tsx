@@ -171,7 +171,11 @@ export default function CartPage() {
                 {/* Product Info */}
                 <div className="flex-1 min-w-0">
                   <Link
-                    href={`/store/${item.product?.slug || ""}`}
+                    href={
+                      item.product?.category?.slug && item.product?.slug
+                        ? `/store/${item.product.category.slug}/${item.product.slug}`
+                        : "/store"
+                    }
                     className="font-semibold text-white hover:text-indigo-300 transition-colors"
                   >
                     {item.product?.name || "สินค้า"}

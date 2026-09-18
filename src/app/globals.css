@@ -400,6 +400,281 @@ body {
   background: var(--theme-admin-sidebar);
 }
 
+/* Admin preferences are deliberately scoped so the storefront keeps its own theme. */
+.admin-theme {
+  --admin-canvas: #020611;
+  --admin-header: rgba(15, 23, 42, 0.98);
+  --admin-sidebar: linear-gradient(180deg, #0f172a 0%, #020611 100%);
+  --admin-surface: rgba(17, 24, 39, 0.72);
+  --admin-surface-elevated: #1e293b;
+  --admin-surface-muted: rgba(30, 41, 59, 0.68);
+  --admin-border: rgba(148, 163, 184, 0.18);
+  --admin-text: #f8fafc;
+  --admin-text-muted: #94a3b8;
+  --admin-hover: rgba(148, 163, 184, 0.12);
+  --admin-field: rgba(15, 23, 42, 0.82);
+  --admin-focus: #818cf8;
+  --admin-primary: linear-gradient(90deg, #6366f1, #8b5cf6, #22d3ee);
+  --admin-primary-hover: linear-gradient(90deg, #818cf8, #a78bfa, #67e8f9);
+  --admin-primary-text: #020617;
+  --admin-secondary: rgba(30, 41, 59, 0.78);
+  --admin-secondary-hover: rgba(51, 65, 85, 0.88);
+  --admin-code-bg: rgba(2, 6, 23, 0.62);
+  --admin-code-text: #a5f3fc;
+  --theme-menu-bg: rgba(15, 23, 42, 0.98);
+  --admin-tone-neutral-bg: rgba(100, 116, 139, 0.18);
+  --admin-tone-neutral-border: rgba(148, 163, 184, 0.3);
+  --admin-tone-neutral-text: #cbd5e1;
+  --admin-tone-info-bg: rgba(59, 130, 246, 0.16);
+  --admin-tone-info-border: rgba(96, 165, 250, 0.3);
+  --admin-tone-info-text: #93c5fd;
+  --admin-tone-success-bg: rgba(16, 185, 129, 0.15);
+  --admin-tone-success-border: rgba(52, 211, 153, 0.3);
+  --admin-tone-success-text: #6ee7b7;
+  --admin-tone-warning-bg: rgba(245, 158, 11, 0.15);
+  --admin-tone-warning-border: rgba(251, 191, 36, 0.3);
+  --admin-tone-warning-text: #fcd34d;
+  --admin-tone-danger-bg: rgba(244, 63, 94, 0.15);
+  --admin-tone-danger-border: rgba(251, 113, 133, 0.3);
+  --admin-tone-danger-text: #fda4af;
+  --admin-tone-accent-bg: rgba(139, 92, 246, 0.16);
+  --admin-tone-accent-border: rgba(167, 139, 250, 0.3);
+  --admin-tone-accent-text: #c4b5fd;
+  color-scheme: dark;
+}
+
+.admin-theme[data-admin-theme="light"] {
+  --admin-canvas: #eef3f9;
+  --admin-header: rgba(255, 255, 255, 0.96);
+  --admin-sidebar: linear-gradient(180deg, #ffffff 0%, #edf3fb 100%);
+  --admin-surface: rgba(255, 255, 255, 0.82);
+  --admin-surface-elevated: #ffffff;
+  --admin-surface-muted: rgba(226, 232, 240, 0.72);
+  --admin-border: rgba(71, 85, 105, 0.2);
+  --admin-text: #172033;
+  --admin-text-muted: #5d6b82;
+  --admin-hover: rgba(99, 102, 241, 0.09);
+  --admin-field: rgba(255, 255, 255, 0.96);
+  --admin-focus: #4f46e5;
+  --admin-primary: #4f46e5;
+  --admin-primary-hover: #4338ca;
+  --admin-primary-text: #ffffff;
+  --admin-secondary: #ffffff;
+  --admin-secondary-hover: #f8fafc;
+  --admin-code-bg: #eef2ff;
+  --admin-code-text: #3730a3;
+  --theme-menu-bg: #ffffff;
+  --admin-tone-neutral-bg: #f1f5f9;
+  --admin-tone-neutral-border: #cbd5e1;
+  --admin-tone-neutral-text: #475569;
+  --admin-tone-info-bg: #eff6ff;
+  --admin-tone-info-border: #bfdbfe;
+  --admin-tone-info-text: #1d4ed8;
+  --admin-tone-success-bg: #ecfdf5;
+  --admin-tone-success-border: #a7f3d0;
+  --admin-tone-success-text: #047857;
+  --admin-tone-warning-bg: #fffbeb;
+  --admin-tone-warning-border: #fde68a;
+  --admin-tone-warning-text: #92400e;
+  --admin-tone-danger-bg: #fff1f2;
+  --admin-tone-danger-border: #fecdd3;
+  --admin-tone-danger-text: #be123c;
+  --admin-tone-accent-bg: #f5f3ff;
+  --admin-tone-accent-border: #ddd6fe;
+  --admin-tone-accent-text: #6d28d9;
+  --background: 216 43% 96%;
+  --foreground: 228 34% 14%;
+  --muted: 216 24% 90%;
+  --muted-foreground: 223 15% 40%;
+  --input: 216 23% 84%;
+  --border: 217 20% 84%;
+  --portal-panel-gradient: linear-gradient(180deg, rgba(255,255,255,.96), rgba(244,247,252,.96));
+  --portal-panel-soft-gradient: linear-gradient(180deg, rgba(255,255,255,.9), rgba(238,243,249,.94));
+  --portal-surface: rgba(255,255,255,.9);
+  --portal-surface-soft: rgba(248,250,252,.88);
+  --portal-border: rgba(71,85,105,.16);
+  --portal-border-strong: rgba(71,85,105,.28);
+  --portal-text-strong: #172033;
+  --portal-text-muted: #5d6b82;
+  --theme-control-bg: rgba(255,255,255,.8);
+  --theme-control-bg-hover: rgba(99,102,241,.08);
+  --theme-control-border: rgba(71,85,105,.18);
+  --theme-control-border-strong: rgba(71,85,105,.3);
+  --theme-control-text: #526078;
+  --theme-control-text-strong: #172033;
+  --theme-field-bg: rgba(255,255,255,.94);
+  --theme-field-border: rgba(71,85,105,.22);
+  --theme-field-text: #172033;
+  --theme-field-placeholder: #8490a3;
+  color-scheme: light;
+}
+
+/* Admin legacy surfaces use scoped semantic values; storefront utility colors are untouched. */
+.admin-theme[data-admin-theme="light"] :is(
+  [class~="bg-gray-800"], [class~="bg-gray-800/20"], [class~="bg-gray-800/30"], [class~="bg-gray-800/50"],
+  [class~="bg-gray-900"], [class~="bg-gray-900/50"], [class~="bg-gray-950"],
+  [class~="bg-slate-700"], [class~="bg-slate-700/30"], [class~="bg-slate-700/50"],
+  [class~="bg-slate-800/50"], [class~="bg-slate-900"], [class~="bg-slate-900/50"],
+  [class~="bg-slate-900/70"], [class~="bg-slate-900/80"], [class~="bg-slate-900/95"],
+  [class~="bg-slate-950"], [class~="bg-slate-950/50"], [class~="bg-slate-950/60"]
+) { background-color: var(--admin-surface); }
+
+.admin-theme[data-admin-theme="light"] :is(.text-white, .text-slate-100, .text-slate-200, .text-slate-300, .text-gray-300) {
+  color: var(--admin-text);
+}
+
+.admin-theme[data-admin-theme="light"] :is(.text-slate-400, .text-slate-500, .text-gray-400, .text-gray-500, .text-gray-600) {
+  color: var(--admin-text-muted);
+}
+
+.admin-theme[data-admin-theme="light"] :is(
+  [class~="border-gray-700"], [class~="border-gray-700/50"], [class~="border-gray-800"], [class~="border-gray-800/50"],
+  [class~="border-slate-600"], [class~="border-slate-700"], [class~="border-slate-700/50"], [class~="border-slate-700/80"]
+) { border-color: var(--admin-border); }
+
+.admin-theme[data-admin-theme="light"] :is([class~="divide-gray-700"], [class~="divide-gray-800/30"], [class~="divide-gray-800/50"]) > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--admin-border);
+}
+
+.admin-theme[data-admin-theme="light"] :is(input, select, textarea) {
+  background-color: var(--admin-field);
+  color: var(--admin-text);
+}
+
+.admin-theme[data-admin-theme="light"] [class~="from-slate-800"][class~="to-slate-900"] {
+  background-image: linear-gradient(135deg, #ffffff, #eef3f9);
+}
+
+.admin-theme[data-admin-theme="light"] :is(.bg-indigo-600, .bg-red-500, .bg-emerald-600, .bg-blue-600).text-white,
+.admin-theme[data-admin-theme="light"] :is(button, a)[class*="from-indigo"][class*="text-white"] {
+  color: #fff;
+}
+
+.admin-theme :is(input, select, textarea):focus-visible,
+.admin-theme button:focus-visible,
+.admin-theme a:focus-visible {
+  outline: 2px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+
+.admin-theme [data-button-variant="default"] {
+  border-color: transparent;
+  background: var(--admin-primary);
+  color: var(--admin-primary-text);
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.16);
+}
+
+.admin-theme [data-button-variant="default"]:hover {
+  background: var(--admin-primary-hover);
+  color: var(--admin-primary-text);
+  box-shadow: 0 10px 24px rgba(79, 70, 229, 0.22);
+}
+
+.admin-theme [data-button-variant="outline"],
+.admin-theme [data-button-variant="secondary"] {
+  border-color: var(--admin-border);
+  background: var(--admin-secondary);
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+.admin-theme [data-button-variant="outline"]:hover,
+.admin-theme [data-button-variant="secondary"]:hover {
+  border-color: color-mix(in srgb, var(--admin-focus) 46%, var(--admin-border));
+  background: var(--admin-secondary-hover);
+  color: var(--admin-focus);
+}
+
+.admin-theme [data-button-variant="ghost"] {
+  color: var(--admin-text-muted);
+}
+
+.admin-theme [data-button-variant="ghost"]:hover {
+  background: var(--admin-hover);
+  color: var(--admin-focus);
+}
+
+.admin-theme .admin-danger-action:hover {
+  background: var(--admin-tone-danger-bg);
+  color: var(--admin-tone-danger-text);
+}
+
+.admin-badge {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--admin-tone-neutral-border);
+  border-radius: 9999px;
+  background: var(--admin-tone-neutral-bg);
+  padding: 0.25rem 0.65rem;
+  color: var(--admin-tone-neutral-text);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.admin-badge[data-tone="info"] { border-color: var(--admin-tone-info-border); background: var(--admin-tone-info-bg); color: var(--admin-tone-info-text); }
+.admin-badge[data-tone="success"] { border-color: var(--admin-tone-success-border); background: var(--admin-tone-success-bg); color: var(--admin-tone-success-text); }
+.admin-badge[data-tone="warning"] { border-color: var(--admin-tone-warning-border); background: var(--admin-tone-warning-bg); color: var(--admin-tone-warning-text); }
+.admin-badge[data-tone="danger"] { border-color: var(--admin-tone-danger-border); background: var(--admin-tone-danger-bg); color: var(--admin-tone-danger-text); }
+.admin-badge[data-tone="accent"] { border-color: var(--admin-tone-accent-border); background: var(--admin-tone-accent-bg); color: var(--admin-tone-accent-text); }
+
+.admin-badge-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: 0 0 auto;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.admin-command-card {
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface-elevated);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.admin-code-preview {
+  border: 1px solid color-mix(in srgb, var(--admin-focus) 18%, var(--admin-border));
+  background: var(--admin-code-bg);
+  color: var(--admin-code-text);
+}
+
+.admin-theme[data-admin-theme="light"] table thead tr {
+  background: #f8fafc;
+}
+
+.admin-theme[data-admin-theme="light"] table tbody tr:hover {
+  background: rgba(79, 70, 229, 0.045);
+}
+
+.admin-theme[data-admin-theme="light"] :is(.text-emerald-300, .text-emerald-400, .text-green-400) { color: #047857; }
+.admin-theme[data-admin-theme="light"] :is(.text-amber-200, .text-amber-300, .text-amber-400, .text-yellow-300, .text-yellow-400) { color: #92400e; }
+.admin-theme[data-admin-theme="light"] :is(.text-blue-300, .text-blue-400, .text-cyan-100, .text-cyan-200, .text-cyan-300) { color: #1d4ed8; }
+.admin-theme[data-admin-theme="light"] :is(.text-indigo-300, .text-indigo-400, .text-purple-300, .text-purple-400) { color: #5b21b6; }
+.admin-theme[data-admin-theme="light"] :is(.text-red-300, .text-red-400, .text-rose-300, .text-rose-400) { color: #be123c; }
+
+.admin-theme .ui-toast {
+  border-color: var(--admin-tone-info-border);
+  background: var(--admin-surface-elevated);
+  color: var(--admin-tone-info-text);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+}
+
+.admin-theme .ui-toast[data-toast-type="success"] { border-color: var(--admin-tone-success-border); color: var(--admin-tone-success-text); }
+.admin-theme .ui-toast[data-toast-type="warning"] { border-color: var(--admin-tone-warning-border); color: var(--admin-tone-warning-text); }
+.admin-theme .ui-toast[data-toast-type="error"] { border-color: var(--admin-tone-danger-border); color: var(--admin-tone-danger-text); }
+.admin-theme .ui-toast svg { color: currentColor; }
+
+.admin-theme.dropdown-menu-content {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-elevated);
+  color: var(--admin-text);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
+}
+
 .theme-toggle-shell {
   background: var(--theme-control-bg);
   border-color: var(--theme-control-border);
@@ -1009,4 +1284,46 @@ select:focus-visible {
   border-radius: 1.35rem;
   margin-top: 1.5rem;
   margin-bottom: 1.5rem;
+}
+
+/* Semantic Admin primitives and final legacy normalization. The scope keeps
+   all storefront surfaces untouched while old Admin screens are migrated. */
+.admin-heading { color: var(--admin-text); }
+.admin-muted { color: var(--admin-text-muted); }
+.admin-danger-text { color: var(--admin-tone-danger-text); }
+.admin-surface {
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.06);
+}
+.admin-elevated { border: 1px solid var(--admin-border); background: var(--admin-surface-elevated); color: var(--admin-text); }
+.admin-field { border-color: var(--admin-border); background: var(--admin-field); color: var(--admin-text); }
+.admin-primary-button { background: var(--admin-primary); color: var(--admin-primary-text); }
+.admin-icon-button { border-radius: .5rem; padding: .5rem; color: var(--admin-text-muted); transition: background-color .15s, color .15s; }
+.admin-icon-button:hover { background: var(--admin-hover); color: var(--admin-focus); }
+.admin-table { color: var(--admin-text); border-collapse: collapse; }
+.admin-table thead { background: var(--admin-surface-muted); }
+.admin-table th { padding: .8rem 1.5rem; text-align: left; color: var(--admin-text-muted); font-size: .75rem; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; }
+.admin-table td { padding: 1rem 1.5rem; border-top: 1px solid var(--admin-border); font-size: .875rem; }
+.admin-table tbody tr { transition: background-color .15s; }
+.admin-table tbody tr:hover { background: var(--admin-hover); }
+
+.admin-theme :is(input, select, textarea) { border-color: var(--admin-border); background-color: var(--admin-field); color: var(--admin-text); }
+.admin-theme :is(input, textarea)::placeholder { color: var(--admin-text-muted); opacity: .8; }
+.admin-theme :is(input, select, textarea):disabled { cursor: not-allowed; background: var(--admin-surface-muted); color: var(--admin-text-muted); opacity: .8; }
+.admin-theme select option { background: var(--admin-surface-elevated); color: var(--admin-text); }
+.admin-theme :is(table, [role="dialog"], [role="menu"], [role="listbox"]) { color: var(--admin-text); }
+
+.admin-theme[data-admin-theme="light"] :is(
+  [class~="bg-white/5"], [class~="bg-white/[0.03]"], [class~="bg-white/[0.04]"],
+  [class~="bg-black/20"], [class~="bg-black/30"]
+) { background-color: var(--admin-surface-muted); }
+.admin-theme[data-admin-theme="light"] :is([class~="border-white/5"], [class~="border-white/10"], [class~="border-white/20"]) { border-color: var(--admin-border); }
+.admin-theme[data-admin-theme="light"] :is(.text-slate-600, .text-slate-700, .text-gray-700) { color: #334155; }
+.admin-theme[data-admin-theme="light"] :is(.from-indigo-600, .from-indigo-500)[class*="to-purple"],
+.admin-theme[data-admin-theme="light"] :is(.from-indigo-600, .from-indigo-500)[class*="to-cyan"] {
+  background-image: none;
+  background-color: var(--admin-primary);
+  color: var(--admin-primary-text);
 }

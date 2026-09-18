@@ -3,10 +3,13 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { AdminBadge } from "@/components/admin/admin-badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Edit, Loader2, X } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
+import { getAdminStatusTone } from "@/lib/admin-ui";
 
 interface Announcement {
   id: string;
@@ -14,32 +17,25 @@ interface Announcement {
   content: string;
   type: string;
   isActive: boolean;
-  startsAt: string | null;
-  endsAt: string | null;
+  startDate: string | null;
+  endDate: string | null;
   sortOrder: number;
   createdAt: string;
 }
-
-const typeColors: Record<string, string> = {
-  INFO: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  WARNING: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  SALE: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  EVENT: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  MAINTENANCE:
-    "bg-red-500/20 text-red-300 border-red-500/30",
-};
 
 interface FormData {
   title: string;
   content: string;
   type: string;
   isActive: boolean;
-  startsAt: string;
-  endsAt: string;
+  startDate: string;
+  endDate: string;
   sortOrder: string;
 }
 
 export default function AnnouncementsPage() {
+  const { addToast } = useToast();
+  const { formatDate, locale } = useAdminPreferences();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,8 +47,8 @@ export default function AnnouncementsPage() {
     content: "",
     type: "INFO",
     isActive: true,
-    startsAt: "",
-    endsAt: "",
+    startDate: "",
+    endDate: "",
     sortOrder: "0",
   });
 
@@ -64,12 +60,11 @@ export default function AnnouncementsPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/announcements");
-      if (res.ok) {
-        const data = await res.json();
-        setAnnouncements(data);
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to load announcements");
+      setAnnouncements(data);
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to load announcements" });
     } finally {
       setLoading(false);
     }
@@ -77,6 +72,7 @@ export default function AnnouncementsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const wasEditing = Boolean(editingId);
     setSaving(true);
     try {
       const url = editingId
@@ -89,17 +85,20 @@ export default function AnnouncementsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
+          startDate: formData.startDate ? new Date(formData.startDate).toISOString() : null,
+          endDate: formData.endDate ? new Date(formData.endDate).toISOString() : null,
           sortOrder: parseInt(formData.sortOrder),
         }),
       });
 
-      if (res.ok) {
-        fetchAnnouncements();
-        resetForm();
-        setShowForm(false);
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to save announcement");
+      await fetchAnnouncements();
+      resetForm();
+      setShowForm(false);
+      addToast({ type: "success", message: wasEditing ? "Announcement updated" : "Announcement created" });
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to save announcement" });
     } finally {
       setSaving(false);
     }
@@ -113,26 +112,28 @@ export default function AnnouncementsPage() {
         body: JSON.stringify({ isActive: !currentState }),
       });
 
-      if (res.ok) {
-        fetchAnnouncements();
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to update announcement status");
+      await fetchAnnouncements();
+      addToast({ type: "success", message: currentState ? "Announcement disabled" : "Announcement enabled" });
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to update announcement status" });
     }
   }
 
   async function deleteAnnouncement(id: string) {
-    if (!confirm("Are you sure you want to delete this announcement?")) return;
+    if (!confirm(locale === "th" ? "ลบประกาศนี้หรือไม่?" : "Are you sure you want to delete this announcement?")) return;
     try {
       const res = await fetch(`/api/admin/announcements/${id}`, {
         method: "DELETE",
       });
 
-      if (res.ok) {
-        fetchAnnouncements();
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to delete announcement");
+      await fetchAnnouncements();
+      addToast({ type: "success", message: "Announcement deleted" });
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to delete announcement" });
     }
   }
 
@@ -142,11 +143,11 @@ export default function AnnouncementsPage() {
       content: announcement.content,
       type: announcement.type,
       isActive: announcement.isActive,
-      startsAt: announcement.startsAt
-        ? new Date(announcement.startsAt).toISOString().slice(0, 16)
+      startDate: announcement.startDate
+        ? new Date(announcement.startDate).toISOString().slice(0, 16)
         : "",
-      endsAt: announcement.endsAt
-        ? new Date(announcement.endsAt).toISOString().slice(0, 16)
+      endDate: announcement.endDate
+        ? new Date(announcement.endDate).toISOString().slice(0, 16)
         : "",
       sortOrder: announcement.sortOrder.toString(),
     });
@@ -160,8 +161,8 @@ export default function AnnouncementsPage() {
       content: "",
       type: "INFO",
       isActive: true,
-      startsAt: "",
-      endsAt: "",
+      startDate: "",
+      endDate: "",
       sortOrder: "0",
     });
     setEditingId(null);
@@ -253,9 +254,9 @@ export default function AnnouncementsPage() {
                   </label>
                   <Input
                     type="datetime-local"
-                    value={formData.startsAt}
+                    value={formData.startDate}
                     onChange={(e) =>
-                      setFormData({ ...formData, startsAt: e.target.value })
+                      setFormData({ ...formData, startDate: e.target.value })
                     }
                     className="border-gray-700 bg-gray-900 text-white"
                   />
@@ -266,9 +267,9 @@ export default function AnnouncementsPage() {
                   </label>
                   <Input
                     type="datetime-local"
-                    value={formData.endsAt}
+                    value={formData.endDate}
                     onChange={(e) =>
-                      setFormData({ ...formData, endsAt: e.target.value })
+                      setFormData({ ...formData, endDate: e.target.value })
                     }
                     className="border-gray-700 bg-gray-900 text-white"
                   />
@@ -347,27 +348,25 @@ export default function AnnouncementsPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold text-white">
-                        {announcement.title}
+                        <span data-admin-user-content>{announcement.title}</span>
                       </h3>
-                      <Badge className={`border ${typeColors[announcement.type]}`}>
+                      <AdminBadge tone={getAdminStatusTone(announcement.type)} dot>
                         {announcement.type}
-                      </Badge>
+                      </AdminBadge>
                       {!announcement.isActive && (
-                        <Badge className="bg-gray-500/20 text-gray-300 border-gray-500/30">
-                          Inactive
-                        </Badge>
+                        <AdminBadge tone="neutral">Inactive</AdminBadge>
                       )}
                     </div>
                     <p className="text-sm text-gray-400 mb-3">
                       {announcement.content}
                     </p>
-                    {(announcement.startsAt || announcement.endsAt) && (
+                    {(announcement.startDate || announcement.endDate) && (
                       <p className="text-xs text-gray-600">
-                        {announcement.startsAt &&
-                          `From ${new Date(announcement.startsAt).toLocaleDateString()}`}
-                        {announcement.startsAt && announcement.endsAt && " to "}
-                        {announcement.endsAt &&
-                          `${new Date(announcement.endsAt).toLocaleDateString()}`}
+                        {announcement.startDate &&
+                          `From ${formatDate(announcement.startDate)}`}
+                        {announcement.startDate && announcement.endDate && " to "}
+                        {announcement.endDate &&
+                          `${formatDate(announcement.endDate)}`}
                       </p>
                     )}
                   </div>

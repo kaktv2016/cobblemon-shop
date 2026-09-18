@@ -40,19 +40,12 @@ export class DryRunDeliveryAdapter implements DeliveryAdapter {
       };
     }
 
-    if (!context.playerUuid || context.playerUuid.trim().length === 0) {
-      return {
-        success: false,
-        error: 'Player UUID is required',
-      };
-    }
-
     // Store the command for testing/verification
     const dryRunCommand: DryRunCommand = {
       timestamp: new Date(),
       command,
       playerName: context.playerName,
-      playerUuid: context.playerUuid,
+      playerUuid: context.playerUuid || '',
       orderId: context.orderId,
     };
 

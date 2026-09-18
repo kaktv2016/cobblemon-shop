@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { AdminBadge, AdminStatusBadge } from "@/components/admin/admin-badge";
 import { Loader2, ArrowLeft, X, Plus } from "lucide-react";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
+import { getAdminRoleTone } from "@/lib/admin-ui";
 
 interface User {
   id: string;
@@ -29,19 +31,10 @@ interface User {
   _count: { orders: number };
 }
 
-const roleColors: Record<string, string> = {
-  admin: "bg-red-500/20 text-red-300 border-red-500/30",
-  moderator: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  user: "bg-gray-500/20 text-gray-300 border-gray-500/30",
-};
-
 const allRoles = ["admin", "moderator", "user"];
 
-function formatPrice(price: any): string {
-  return `฿${Number(price).toLocaleString()}`;
-}
-
 export default function AdminUserDetailPage() {
+  const { formatCurrency, formatDate } = useAdminPreferences();
   const params = useParams();
   const router = useRouter();
   const userId = params.id as string;
@@ -171,17 +164,15 @@ export default function AdminUserDetailPage() {
               <label className="block text-sm font-medium text-gray-400 mb-2">
                 Username
               </label>
-              <p className="font-medium text-white">{user.username}</p>
+              <p className="font-medium text-white" data-admin-user-content>{user.username}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-2">
                 Email
               </label>
-              <p className="font-medium text-white">{user.email}</p>
+              <p className="font-medium text-white" data-admin-user-content>{user.email}</p>
               {user.emailVerified && (
-                <Badge className="mt-2 border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-                  Verified
-                </Badge>
+                <AdminBadge tone="success" className="mt-2" dot>Verified</AdminBadge>
               )}
             </div>
             <div>
@@ -216,13 +207,13 @@ export default function AdminUserDetailPage() {
             <div>
               <p className="text-gray-500">Joined</p>
               <p className="text-white font-medium">
-                {new Date(user.createdAt).toLocaleDateString()}
+                {formatDate(user.createdAt)}
               </p>
             </div>
             <div>
               <p className="text-gray-500">Last Updated</p>
               <p className="text-white font-medium">
-                {new Date(user.updatedAt).toLocaleDateString()}
+                {formatDate(user.updatedAt)}
               </p>
             </div>
           </div>
@@ -245,9 +236,7 @@ export default function AdminUserDetailPage() {
                 <p className="text-sm text-gray-500">UUID</p>
                 <p className="font-mono text-sm text-gray-400">{user.minecraftAccount.uuid}</p>
               </div>
-              <Badge className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 mt-2">
-                Linked
-              </Badge>
+              <AdminBadge tone="success" className="mt-2" dot>Linked</AdminBadge>
             </div>
           ) : (
             <p className="text-gray-500">Not linked</p>
@@ -264,11 +253,10 @@ export default function AdminUserDetailPage() {
           <div className="flex flex-wrap gap-2">
             {user.roles.length > 0 ? (
               user.roles.map((ur) => (
-                <Badge
+                <AdminBadge
                   key={ur.role.id}
-                  className={`border flex items-center gap-2 ${
-                    roleColors[ur.role.name.toLowerCase()] || roleColors.user
-                  }`}
+                  tone={getAdminRoleTone(ur.role.name)}
+                  className="gap-2"
                 >
                   {ur.role.name}
                   <button
@@ -277,7 +265,7 @@ export default function AdminUserDetailPage() {
                   >
                     <X className="h-3 w-3" />
                   </button>
-                </Badge>
+                </AdminBadge>
               ))
             ) : (
               <p className="text-gray-500">No roles assigned</p>
@@ -333,25 +321,13 @@ export default function AdminUserDetailPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-2 text-gray-400">
-                        {new Date(order.createdAt).toLocaleDateString()}
+                        {formatDate(order.createdAt)}
                       </td>
                       <td className="px-4 py-2">
-                        <Badge
-                          className={
-                            order.status === "DELIVERED"
-                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                              : order.status === "PENDING_PAYMENT"
-                                ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                                : order.status === "FAILED_DELIVERY"
-                                  ? "border-red-500/30 bg-red-500/10 text-red-400"
-                                  : "border-indigo-500/30 bg-indigo-500/10 text-indigo-400"
-                          }
-                        >
-                          {order.status.replace(/_/g, " ")}
-                        </Badge>
+                        <AdminStatusBadge status={order.status} />
                       </td>
                       <td className="px-4 py-2 text-right text-white font-medium">
-                        {formatPrice(order.total)}
+                        {formatCurrency(Number(order.total))}
                       </td>
                     </tr>
                   ))}

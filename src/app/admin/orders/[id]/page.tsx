@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { AdminBadge, AdminStatusBadge } from "@/components/admin/admin-badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -17,6 +17,7 @@ import {
   QrCode,
   CheckCircle2,
 } from "lucide-react";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
 
 interface OrderItem {
   id: string;
@@ -82,32 +83,6 @@ interface Order {
   };
 }
 
-const statusConfig: Record<string, { color: string; label: string }> = {
-  PENDING_PAYMENT: { color: "bg-yellow-500/20 text-yellow-300", label: "Awaiting Payment" },
-  PAID: { color: "bg-blue-500/20 text-blue-300", label: "Payment Confirmed" },
-  QUEUED_DELIVERY: { color: "bg-indigo-500/20 text-indigo-300", label: "In Delivery" },
-  DELIVERED: { color: "bg-emerald-500/20 text-emerald-300", label: "Delivered" },
-  PARTIALLY_DELIVERED: { color: "bg-cyan-500/20 text-cyan-300", label: "Partially Delivered" },
-  FAILED_DELIVERY: { color: "bg-red-500/20 text-red-300", label: "Delivery Failed" },
-  REFUNDED: { color: "bg-purple-500/20 text-purple-300", label: "Refunded" },
-  CANCELED: { color: "bg-gray-500/20 text-gray-300", label: "Canceled" },
-};
-
-const deliveryStatusColors: Record<string, string> = {
-  PENDING: "bg-gray-500/20 text-gray-300",
-  QUEUED: "bg-indigo-500/20 text-indigo-300",
-  DELIVERED: "bg-emerald-500/20 text-emerald-300",
-  FAILED: "bg-red-500/20 text-red-300",
-};
-
-const jobStatusColors: Record<string, string> = {
-  PENDING: "bg-gray-500/20 text-gray-300",
-  PROCESSING: "bg-yellow-500/20 text-yellow-300",
-  SUCCESS: "bg-emerald-500/20 text-emerald-300",
-  FAILED: "bg-red-500/20 text-red-300",
-  SKIPPED: "bg-slate-500/20 text-slate-300",
-};
-
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -128,6 +103,7 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export default function AdminOrderDetailPage() {
+  const { locale, formatDate } = useAdminPreferences();
   const params = useParams();
   const orderId = params.id as string;
   const [order, setOrder] = useState<Order | null>(null);
@@ -158,7 +134,7 @@ export default function AdminOrderDetailPage() {
   }
 
   async function handleStatusUpdate(newStatus: string) {
-    if (!confirm(`Change order status to ${newStatus}?`)) return;
+    if (!confirm(locale === "th" ? `เปลี่ยนสถานะคำสั่งซื้อเป็น ${newStatus} หรือไม่?` : `Change order status to ${newStatus}?`)) return;
 
     setActionLoading(true);
     try {
@@ -178,7 +154,7 @@ export default function AdminOrderDetailPage() {
   }
 
   async function handleQueueDelivery() {
-    if (!confirm("Queue delivery for this order?")) return;
+    if (!confirm(locale === "th" ? "นำคำสั่งซื้อนี้เข้าคิวส่งสินค้าหรือไม่?" : "Queue delivery for this order?")) return;
 
     setActionLoading(true);
     try {
@@ -198,7 +174,7 @@ export default function AdminOrderDetailPage() {
   }
 
   async function handleConfirmPayment() {
-    if (!confirm("ยืนยันว่าลูกค้าชำระเงินผ่าน PromptPay แล้ว?")) return;
+    if (!confirm(locale === "th" ? "ยืนยันว่าลูกค้าชำระเงินผ่าน PromptPay แล้ว?" : "Confirm that the customer has paid through PromptPay?")) return;
 
     setActionLoading(true);
     try {
@@ -217,7 +193,7 @@ export default function AdminOrderDetailPage() {
   }
 
   async function handleRetryDelivery(jobId: string) {
-    if (!confirm("Retry delivery for this job?")) return;
+    if (!confirm(locale === "th" ? "ลองส่งงานนี้อีกครั้งหรือไม่?" : "Retry delivery for this job?")) return;
 
     setActionLoading(true);
     try {
@@ -254,8 +230,6 @@ export default function AdminOrderDetailPage() {
     );
   }
 
-  const config = statusConfig[order.status] || statusConfig.PENDING_PAYMENT;
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -265,10 +239,10 @@ export default function AdminOrderDetailPage() {
             Order {order.orderNumber}
           </h1>
           <p className="mt-1 text-sm text-slate-400">
-            Created {new Date(order.createdAt).toLocaleDateString()}
+            Created {formatDate(order.createdAt)}
           </p>
         </div>
-        <Badge className={config.color}>{config.label}</Badge>
+        <AdminStatusBadge status={order.status} />
       </div>
 
       {/* Customer Info */}
@@ -279,11 +253,11 @@ export default function AdminOrderDetailPage() {
         <CardContent className="space-y-3">
           <div className="flex justify-between">
             <span className="text-slate-400">Username</span>
-            <span className="text-slate-200">{order.user.username}</span>
+            <span className="text-slate-200" data-admin-user-content>{order.user.username}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-400">Email</span>
-            <span className="text-slate-200">{order.user.email}</span>
+            <span className="text-slate-200" data-admin-user-content>{order.user.email}</span>
           </div>
           {order.playerName && (
             <div className="flex justify-between">
@@ -345,9 +319,7 @@ export default function AdminOrderDetailPage() {
                       {item.productName}
                     </td>
                     <td className="px-4 py-3 text-slate-200 text-xs">
-                      <Badge variant="secondary">
-                        {item.productType}
-                      </Badge>
+                      <AdminBadge tone="neutral">{item.productType}</AdminBadge>
                     </td>
                     <td className="px-4 py-3 text-slate-200">
                       {item.quantity}
@@ -359,14 +331,7 @@ export default function AdminOrderDetailPage() {
                       ฿{Number(item.totalPrice).toFixed(2)}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge
-                        className={
-                          deliveryStatusColors[item.deliveryStatus] ||
-                          "bg-slate-700 text-slate-300"
-                        }
-                      >
-                        {item.deliveryStatus}
-                      </Badge>
+                      <AdminStatusBadge status={item.deliveryStatus} />
                     </td>
                   </tr>
                 ))}
@@ -398,17 +363,7 @@ export default function AdminOrderDetailPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400">Status</span>
-                  <Badge
-                    className={
-                      payment.status === "COMPLETED"
-                        ? "bg-emerald-500/20 text-emerald-300"
-                        : payment.status === "PENDING"
-                        ? "bg-yellow-500/20 text-yellow-300"
-                        : "bg-red-500/20 text-red-300"
-                    }
-                  >
-                    {payment.status}
-                  </Badge>
+                  <AdminStatusBadge status={payment.status} />
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400">Amount</span>
@@ -450,19 +405,12 @@ export default function AdminOrderDetailPage() {
                 <div className="flex justify-between items-start gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge
-                        className={
-                          jobStatusColors[job.status] ||
-                          "bg-slate-700 text-slate-300"
-                        }
-                      >
-                        {job.status}
-                      </Badge>
+                      <AdminStatusBadge status={job.status} />
                       <span className="text-sm text-slate-400">
                         Attempt {job.attempts}/{job.maxAttempts}
                       </span>
                     </div>
-                    <code className="text-xs text-slate-300 bg-slate-700/50 px-2 py-1 rounded block mt-2 break-all">
+                    <code className="admin-code-preview block break-all rounded px-2 py-1 text-xs mt-2">
                       {job.renderedCommand}
                     </code>
                   </div>
@@ -485,7 +433,7 @@ export default function AdminOrderDetailPage() {
 
                 {job.lastAttemptAt && (
                   <div className="text-xs text-slate-400">
-                    Last attempt: {new Date(job.lastAttemptAt).toLocaleString()}
+                    Last attempt: {formatDate(job.lastAttemptAt, { dateStyle: "medium", timeStyle: "short" })}
                   </div>
                 )}
 
@@ -516,7 +464,7 @@ export default function AdminOrderDetailPage() {
                       >
                         <div className="flex justify-between text-slate-400">
                           <span>Attempt {log.attempt}</span>
-                          <span>{new Date(log.executedAt).toLocaleTimeString()}</span>
+                          <span>{formatDate(log.executedAt, { timeStyle: "medium" })}</span>
                         </div>
                         {log.response && (
                           <p className="text-slate-300">

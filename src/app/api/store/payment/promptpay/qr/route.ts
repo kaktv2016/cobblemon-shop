@@ -26,7 +26,10 @@ export async function GET(request: NextRequest) {
     // Fetch the order — verify ownership
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, userId: true, total: true, status: true },
+      select: {
+        id: true, userId: true, total: true, status: true,
+        payments: { where: { provider: 'promptpay' }, select: { id: true }, take: 1 },
+      },
     });
 
     if (!order) {
@@ -41,6 +44,13 @@ export async function GET(request: NextRequest) {
     if (order.status !== 'PENDING_PAYMENT') {
       return NextResponse.json(
         { error: 'Order is not awaiting payment' },
+        { status: 409 }
+      );
+    }
+
+    if (!order.payments[0]) {
+      return NextResponse.json(
+        { error: 'This endpoint is only available for legacy PromptPay orders' },
         { status: 409 }
       );
     }

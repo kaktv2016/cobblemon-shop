@@ -2,12 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { CartService } from "@/lib/services/cart.service";
+import { isCommerceMaintenanceMode } from "@/lib/store-settings";
+
+async function maintenanceResponse() {
+  return (await isCommerceMaintenanceMode())
+    ? NextResponse.json({ error: "Shop is under maintenance" }, { status: 503 })
+    : null;
+}
 
 /** PATCH /api/store/cart/[productId] — Update quantity */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
+  const maintenance = await maintenanceResponse();
+  if (maintenance) return maintenance;
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
@@ -33,6 +42,8 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
+  const maintenance = await maintenanceResponse();
+  if (maintenance) return maintenance;
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });

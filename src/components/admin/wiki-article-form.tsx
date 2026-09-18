@@ -12,8 +12,10 @@ import {
 import { slugify } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { AdminBadge } from "@/components/admin/admin-badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 
 type WikiArticleFormProps = {
   categories: Array<{
@@ -32,6 +34,7 @@ export function WikiArticleForm({
   articleId,
 }: WikiArticleFormProps) {
   const router = useRouter();
+  const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -98,6 +101,7 @@ export function WikiArticleForm({
         shouldValidate: true,
       });
       clearErrors("coverImage");
+      addToast({ type: "success", message: "Cover image uploaded" });
     } catch (error) {
       setUploadError(
         error instanceof Error ? error.message : "Image upload failed."
@@ -123,14 +127,14 @@ export function WikiArticleForm({
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to save wiki article");
-      }
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to save wiki article");
 
+      addToast({ type: "success", message: isEditMode ? "Wiki article updated" : "Wiki article created" });
       router.push("/admin/content/wiki");
       router.refresh();
     } catch (error) {
-      console.error("Wiki article save error:", error);
+      addToast({ type: "error", message: error instanceof Error ? error.message : "Failed to save wiki article" });
     } finally {
       setIsSubmitting(false);
     }
@@ -229,10 +233,10 @@ export function WikiArticleForm({
                   )}
 
                   <div className="relative flex h-full flex-col justify-between p-5 sm:p-6">
-                    <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/12 bg-slate-950/50 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-cyan-100 backdrop-blur-md">
+                    <AdminBadge tone="info" className="w-fit">
                       <ImagePlus className="h-3.5 w-3.5" />
                       Cover preview
-                    </div>
+                    </AdminBadge>
 
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">
@@ -333,7 +337,7 @@ export function WikiArticleForm({
             >
               <option value="">Select a category</option>
               {categories.map((category) => (
-                <option key={category.id} value={category.id}>
+                <option key={category.id} value={category.id} data-admin-user-content>
                   {category.name}
                 </option>
               ))}

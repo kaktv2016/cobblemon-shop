@@ -58,7 +58,10 @@ export async function GET(request: NextRequest) {
   }
 
   const payment = order.payments[0];
-  const provider = payment?.provider ?? 'promptpay';
+  if (!payment || !['omise', 'xendit', 'gbprimepay', 'promptpay'].includes(payment.provider)) {
+    return NextResponse.json({ error: 'This QR endpoint is only available for legacy payment orders' }, { status: 409 });
+  }
+  const provider = payment.provider;
   const raw = payment?.rawResponse as Record<string, string> | null;
 
   const QRCode = await import('qrcode');
@@ -195,7 +198,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  /* ── PromptPay manual — generate on-the-fly ─────────────────────── */
+  /* ── Legacy manual PromptPay — generate on-the-fly ─────────────── */
   const promptPayId = process.env.PROMPTPAY_ID;
   if (!promptPayId) {
     return NextResponse.json({ error: 'PROMPTPAY_ID not configured' }, { status: 500 });

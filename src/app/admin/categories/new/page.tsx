@@ -9,8 +9,8 @@ export default function CreateCategoryPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">Create Category</h1>
-        <p className="text-slate-400 mt-1">Add a new product category</p>
+        <h1 className="admin-heading text-3xl font-bold">Create Category</h1>
+        <p className="admin-muted mt-1">Add a new product category</p>
       </div>
 
       <CategoryForm />

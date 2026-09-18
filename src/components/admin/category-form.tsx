@@ -76,31 +76,31 @@ export function CategoryForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <Card className="border-slate-700 bg-slate-800/50 p-6">
+      <Card className="admin-surface p-6">
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="admin-heading mb-2 block text-sm font-medium">
                 Category Name *
               </label>
               <Input
                 {...register("name")}
                 onChange={handleNameChange}
                 placeholder="e.g., Cosmetics, Ranks"
-                className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
+                className="admin-field"
               />
               {errors.name && (
                 <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="admin-heading mb-2 block text-sm font-medium">
                 Slug *
               </label>
               <Input
                 {...register("slug")}
                 placeholder="auto-generated"
-                className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
+                className="admin-field"
               />
               {errors.slug && (
                 <p className="text-red-500 text-sm mt-1">{errors.slug.message}</p>
@@ -109,14 +109,14 @@ export function CategoryForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="admin-heading mb-2 block text-sm font-medium">
               Description
             </label>
             <Textarea
               {...register("description")}
               placeholder="Category description"
               rows={3}
-              className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
+              className="admin-field"
             />
             {errors.description && (
               <p className="text-red-500 text-sm mt-1">
@@ -127,24 +127,27 @@ export function CategoryForm({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="admin-heading mb-2 block text-sm font-medium">
                 Sort Order
               </label>
               <Input
                 type="number"
                 {...register("sortOrder", { valueAsNumber: true })}
                 placeholder="0"
-                className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
+                className="admin-field"
               />
+              <p className="admin-muted mt-1.5 text-xs">
+                Lower numbers appear first in category lists and the storefront.
+              </p>
             </div>
             <div className="flex items-end">
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   {...register("isActive")}
-                  className="w-4 h-4 rounded border-slate-600 bg-slate-900"
+                  className="admin-field h-4 w-4 rounded"
                 />
-                <span className="text-sm font-medium text-slate-300">Active</span>
+                <span className="admin-heading text-sm font-medium">Active</span>
               </label>
             </div>
           </div>
@@ -156,14 +159,14 @@ export function CategoryForm({
           type="button"
           variant="outline"
           onClick={() => router.back()}
-          className="border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white"
+          className="admin-secondary-button"
         >
           Cancel
         </Button>
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="bg-indigo-600 hover:bg-indigo-700"
+          className="admin-primary-button"
         >
           {isSubmitting ? "Saving..." : isEditMode ? "Update Category" : "Create Category"}
         </Button>

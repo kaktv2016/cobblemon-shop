@@ -34,11 +34,11 @@ export async function POST(request: NextRequest) {
     if (event.type === 'payment.completed') {
       const order = await prisma.order.findUnique({
         where: { id: orderId },
-        include: { payments: { orderBy: { createdAt: 'desc' }, take: 1 } },
+        include: { payments: { where: { provider: 'xendit', providerTransactionId: event.paymentId }, take: 1 } },
       });
 
-      if (!order) {
-        console.error(`[Xendit webhook] Order ${orderId} not found`);
+      if (!order || !order.payments[0]) {
+        console.error(`[Xendit webhook] No matching legacy transaction for order ${orderId}`);
         return NextResponse.json({ received: true });
       }
 
@@ -52,15 +52,7 @@ export async function POST(request: NextRequest) {
             data: { status: 'PAID' },
           });
 
-          if (order.payments[0]) {
-            await tx.paymentTransaction.update({
-              where: { id: order.payments[0].id },
-              data: {
-                status: 'COMPLETED',
-                providerTransactionId: event.paymentId,
-              },
-            });
-          }
+          await tx.paymentTransaction.update({ where: { id: order.payments[0].id }, data: { status: 'COMPLETED' } });
 
           await tx.auditLog.create({
             data: {

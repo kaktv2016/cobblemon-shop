@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, ChevronRight, Copy, Check, QrCode } from "lucide-react";
+import { AlertCircle, ChevronRight, Copy, Check, QrCode, Loader2 } from "lucide-react";
 
 interface OrderItem {
   id: string;
@@ -24,11 +24,13 @@ interface PaymentTransaction {
   providerTransactionId: string | null;
   status: string;
   amount: number;
+  checkoutUrl: string | null;
   createdAt: string;
 }
 
 interface DeliveryJob {
   orderItemId: string;
+  sequence: number;
   status: string;
   error: string | null;
   nextRetryAt: string | null;
@@ -87,31 +89,34 @@ const deliveryStatusColors: Record<string, string> = {
 };
 
 function getDeliveryPresentation(item: OrderItem, jobs: DeliveryJob[]) {
-  const job = jobs.find((candidate) => candidate.orderItemId === item.id);
-  if (!job) {
+  const itemJobs = jobs
+    .filter((candidate) => candidate.orderItemId === item.id)
+    .sort((a, b) => a.sequence - b.sequence);
+  if (itemJobs.length === 0) {
     return {
       label: deliveryStatusLabels[item.deliveryStatus] ?? item.deliveryStatus,
       color: deliveryStatusColors[item.deliveryStatus] || "bg-slate-700 text-slate-300",
     };
   }
 
-  if (job.status === "SUCCESS") {
+  if (itemJobs.every((job) => job.status === "SUCCESS")) {
     return { label: "ส่งสำเร็จ", color: deliveryStatusColors.DELIVERED };
   }
-  if (job.status === "PROCESSING") {
+  if (itemJobs.some((job) => job.status === "PROCESSING")) {
     return { label: "กำลังส่ง", color: "bg-cyan-500/20 text-cyan-300" };
   }
-  if (job.status === "FAILED") {
-    const needsReview = job.error?.startsWith("MANUAL_REVIEW_REQUIRED");
+  const failedJob = itemJobs.find((job) => job.status === "FAILED");
+  if (failedJob) {
+    const needsReview = failedJob.error?.startsWith("MANUAL_REVIEW_REQUIRED");
     return {
       label: needsReview ? "รอแอดมินตรวจสอบ" : "ส่งไม่สำเร็จ",
       color: deliveryStatusColors.FAILED,
     };
   }
-  if (job.error?.startsWith("PLAYER_OFFLINE")) {
+  if (itemJobs.some((job) => job.error?.startsWith("PLAYER_OFFLINE"))) {
     return { label: "รอผู้เล่นออนไลน์", color: "bg-amber-500/20 text-amber-300" };
   }
-  if (job.error?.startsWith("CONNECTION_RETRY")) {
+  if (itemJobs.some((job) => job.error?.startsWith("CONNECTION_RETRY"))) {
     return { label: "รอเชื่อมต่อเซิร์ฟเวอร์", color: "bg-blue-500/20 text-blue-300" };
   }
 
@@ -143,6 +148,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [openingPayment, setOpeningPayment] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -205,6 +211,31 @@ export default function OrderDetailPage() {
   const currentStepIndex = timelineSteps.findIndex((step) => step.key === order.status);
   const isPendingPayment = order.status === "PENDING_PAYMENT";
 
+  async function openPayment() {
+    if (!order || openingPayment) return;
+    setOpeningPayment(true);
+    setError(null);
+    try {
+      const latest = [...order.payments].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+      if (latest && ["omise", "xendit", "gbprimepay", "promptpay"].includes(latest.provider)) {
+        window.location.assign(`/checkout/promptpay?order=${order.id}`);
+        return;
+      }
+      const stillUsable = latest?.checkoutUrl && latest.status === "PENDING" && Date.now() - Date.parse(latest.createdAt) < 25 * 60_000;
+      if (stillUsable) {
+        window.location.assign(latest.checkoutUrl!);
+        return;
+      }
+      const response = await fetch(`/api/store/orders/${order.id}/payment-session`, { method: "POST" });
+      const body = await response.json();
+      if (!response.ok || !body.checkoutUrl) throw new Error(body.error || "Unable to create payment session");
+      window.location.assign(body.checkoutUrl);
+    } catch (paymentError) {
+      setError(paymentError instanceof Error ? paymentError.message : "Unable to open payment");
+      setOpeningPayment(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 px-4 py-12 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl space-y-6">
@@ -238,12 +269,10 @@ export default function OrderDetailPage() {
                   </p>
                 </div>
               </div>
-              <Link href={`/checkout/promptpay?order=${order.id}`} className="flex-shrink-0 w-full sm:w-auto">
-                <Button className="w-full sm:w-auto bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-slate-900 font-bold shadow-lg shadow-yellow-500/20 gap-2">
-                  <QrCode className="h-4 w-4" />
-                  ชำระเงิน / สแกน QR
-                </Button>
-              </Link>
+              <Button onClick={openPayment} disabled={openingPayment} className="w-full flex-shrink-0 gap-2 bg-gradient-to-r from-yellow-500 to-amber-500 font-bold text-slate-900 shadow-lg shadow-yellow-500/20 hover:from-yellow-400 hover:to-amber-400 sm:w-auto">
+                {openingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+                ชำระเงิน / สแกน QR
+              </Button>
             </div>
           </div>
         )}
@@ -445,12 +474,10 @@ export default function OrderDetailPage() {
             </Button>
           </Link>
           {isPendingPayment && (
-            <Link href={`/checkout/promptpay?order=${order.id}`}>
-              <Button className="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-slate-900 font-bold gap-2">
-                <QrCode className="h-4 w-4" />
-                ชำระเงิน / สแกน QR
-              </Button>
-            </Link>
+            <Button onClick={openPayment} disabled={openingPayment} className="gap-2 bg-gradient-to-r from-yellow-500 to-amber-500 font-bold text-slate-900 hover:from-yellow-400 hover:to-amber-400">
+              {openingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+              ชำระเงิน / สแกน QR
+            </Button>
           )}
         </div>
       </div>

@@ -4,13 +4,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Badge } from "@/components/ui/badge";
+import { AdminBadge } from "@/components/admin/admin-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ProductFormSchema, type ProductFormSchemaType } from "@/lib/admin/validation";
-import { X, Plus } from "lucide-react";
+import { X, Plus, ChevronUp, ChevronDown, Trash2 } from "lucide-react";
+import {
+  DELIVERY_PLACEHOLDERS,
+  productDeliveryCommandsSchema,
+  type ProductDeliveryCommandInput,
+} from "@/lib/validators/product-delivery-command";
 
 interface ProductFormProps {
   categories: Array<{
@@ -23,7 +28,9 @@ interface ProductFormProps {
     name: string;
     commandTemplate: string;
   }>;
-  initialData?: Partial<ProductFormSchemaType>;
+  initialData?: Partial<ProductFormSchemaType> & {
+    deliveryCommands?: ProductDeliveryCommandInput[];
+  };
   isEditMode?: boolean;
   productId?: string;
 }
@@ -71,6 +78,13 @@ export function ProductForm({
   const [bundleItems, setBundleItems] = useState<
     Array<{ productId: string; quantity: number }>
   >(initialData?.bundleItems || []);
+  const [deliveryCommands, setDeliveryCommands] = useState<ProductDeliveryCommandInput[]>(
+    initialData?.deliveryCommands?.length
+      ? initialData.deliveryCommands
+      : initialData?.deliveryTemplateId
+        ? [{ kind: "TEMPLATE", templateId: initialData.deliveryTemplateId, commandTemplate: null }]
+        : []
+  );
 
   const {
     register,
@@ -145,6 +159,13 @@ export function ProductForm({
     setIsSubmitting(true);
     setSubmitError("");
 
+    const deliveryValidation = productDeliveryCommandsSchema.safeParse(deliveryCommands);
+    if (!deliveryValidation.success) {
+      setSubmitError(deliveryValidation.error.issues[0]?.message || "Invalid delivery command");
+      setIsSubmitting(false);
+      return;
+    }
+
     const payload = {
       name: data.name,
       slug: data.slug,
@@ -165,6 +186,7 @@ export function ProductForm({
       startDate: data.startDate || null,
       endDate: data.endDate || null,
       deliveryTemplateId: data.deliveryTemplateId || null,
+      deliveryCommands: deliveryValidation.data,
       metadata: data.metadata,
       tags: data.tags,
       bundleItems: data.bundleItems,
@@ -283,7 +305,7 @@ export function ProductForm({
             >
               <option value="">Select category</option>
               {categories.map((category) => (
-                <option key={category.id} value={category.id}>
+                <option key={category.id} value={category.id} data-admin-user-content>
                   {category.name}
                 </option>
               ))}
@@ -361,61 +383,71 @@ export function ProductForm({
       </Card>
 
       <Card className="border-slate-700 bg-slate-800/50 p-6">
-        <h2 className="mb-1 text-lg font-semibold text-white">In-game Delivery</h2>
-        <p className="mb-4 text-sm text-slate-400">
-          This command runs through RCON only after payment is confirmed.
-        </p>
-        <div className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">
-              Delivery Template
-            </label>
-            <select
-              {...register("deliveryTemplateId")}
-              className="h-10 w-full rounded-md border border-slate-600 bg-slate-900 px-3 text-white"
-            >
-              <option value="">No automatic delivery</option>
-              {deliveryTemplates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.name} — {template.commandTemplate}
-                </option>
-              ))}
-            </select>
+            <h2 className="text-lg font-semibold text-white">In-game Delivery</h2>
+            <p className="mt-1 text-sm text-slate-400">Commands run in order through RCON only after Stripe confirms payment.</p>
           </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-300">
-                Server Item / Rank Key
-              </label>
-              <Input
-                {...register("metadata.deliveryKey")}
-                placeholder="e.g. cobblemon:poke_ball or vip"
-                className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
-              />
-              <p className="mt-1 text-xs text-slate-500">
-                Used as {`{delivery_key}`}; falls back to the product slug.
-              </p>
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-300">
-                Amount Per Purchase Unit
-              </label>
-              <Input
-                type="number"
-                min="0"
-                {...register("metadata.deliveryAmount", {
-                  setValueAs: normalizeOptionalNumber,
-                })}
-                placeholder="1"
-                className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
-              />
-              <p className="mt-1 text-xs text-slate-500">
-                Used as {`{delivery_amount}`} and multiplied by cart quantity.
-              </p>
-            </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => setDeliveryCommands((commands) => [...commands, { kind: "TEMPLATE", templateId: deliveryTemplates[0]?.id || null, commandTemplate: null }])}>
+              <Plus className="mr-2 h-4 w-4" />Template
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setDeliveryCommands((commands) => [...commands, { kind: "CUSTOM", templateId: null, commandTemplate: "" }])}>
+              <Plus className="mr-2 h-4 w-4" />Custom Command
+            </Button>
           </div>
         </div>
+
+        <div className="mt-5 space-y-3">
+          {deliveryCommands.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">No automatic delivery commands.</div>
+          ) : deliveryCommands.map((command, index) => {
+            const selectedTemplate = deliveryTemplates.find((template) => template.id === command.templateId);
+            const previewSource = command.kind === "TEMPLATE" ? selectedTemplate?.commandTemplate || "" : command.commandTemplate || "";
+            const preview = previewSource
+              .replaceAll("{player_name}", "Steve")
+              .replaceAll("{player_uuid}", "550e8400-e29b-41d4-a716-446655440000")
+              .replaceAll("{order_id}", "ORD-001")
+              .replaceAll("{product_id}", "PROD-001")
+              .replaceAll("{product_slug}", "example-product")
+              .replaceAll("{delivery_key}", "vip")
+              .replaceAll("{delivery_amount}", "1")
+              .replaceAll("{quantity}", "1");
+            return (
+              <div key={index} className="admin-command-card rounded-xl p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-300">Command {index + 1} · {command.kind === "TEMPLATE" ? "Reusable template" : "Custom"}</span>
+                  <div className="flex gap-1">
+                    <Button type="button" variant="ghost" size="icon" title="Move command up" aria-label="Move command up" disabled={index === 0} onClick={() => setDeliveryCommands((commands) => { const next = [...commands]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; return next; })}><ChevronUp className="h-4 w-4" /></Button>
+                    <Button type="button" variant="ghost" size="icon" title="Move command down" aria-label="Move command down" disabled={index === deliveryCommands.length - 1} onClick={() => setDeliveryCommands((commands) => { const next = [...commands]; [next[index], next[index + 1]] = [next[index + 1], next[index]]; return next; })}><ChevronDown className="h-4 w-4" /></Button>
+                    <Button type="button" variant="ghost" size="icon" title="Delete command" aria-label="Delete command" className="admin-danger-action" onClick={() => setDeliveryCommands((commands) => commands.filter((_, commandIndex) => commandIndex !== index))}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+                {command.kind === "TEMPLATE" ? (
+                  <select value={command.templateId || ""} onChange={(event) => setDeliveryCommands((commands) => commands.map((item, commandIndex) => commandIndex === index ? { ...item, templateId: event.target.value } : item))} className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-field)] px-3 text-[var(--admin-text)]">
+                    <option value="">Select template</option>
+                    {deliveryTemplates.map((template) => <option key={template.id} value={template.id} data-admin-user-content>{template.name} — {template.commandTemplate}</option>)}
+                  </select>
+                ) : (
+                  <Input value={command.commandTemplate || ""} onChange={(event) => setDeliveryCommands((commands) => commands.map((item, commandIndex) => commandIndex === index ? { ...item, commandTemplate: event.target.value } : item))} placeholder="plugin command {player_name} value" className="border-[var(--admin-border)] bg-[var(--admin-field)] font-mono text-[var(--admin-text)]" />
+                )}
+                {preview && <code className="admin-code-preview mt-3 block break-all rounded-lg p-3 text-xs">{preview}</code>}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-300">Server Item / Rank Key</label>
+            <Input {...register("metadata.deliveryKey")} placeholder="e.g. cobblemon:poke_ball or vip" className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500" />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-300">Amount Per Purchase Unit</label>
+            <Input type="number" min="0" {...register("metadata.deliveryAmount", { setValueAs: normalizeOptionalNumber })} placeholder="1" className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500" />
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-slate-500">Available placeholders: {DELIVERY_PLACEHOLDERS.map((placeholder) => `{${placeholder}}`).join(", ")}</p>
       </Card>
 
       <Card className="border-slate-700 bg-slate-800/50 p-6">
@@ -587,11 +619,7 @@ export function ProductForm({
           {tags.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {tags.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="secondary"
-                  className="border-indigo-600/30 bg-indigo-600/20 text-indigo-400"
-                >
+                <AdminBadge key={tag} tone="accent">
                   {tag}
                   <button
                     type="button"
@@ -600,7 +628,7 @@ export function ProductForm({
                   >
                     <X className="h-3 w-3" />
                   </button>
-                </Badge>
+                </AdminBadge>
               ))}
             </div>
           ) : null}

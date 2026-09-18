@@ -14,6 +14,18 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding Cobblemon Shop database...\n');
 
+  await prisma.storeSettings.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: {
+      id: 'default',
+      shopName: 'Cobblemon Divided',
+      shopDescription: 'The official Cobblemon webshop',
+      currency: 'THB',
+      maintenanceMode: false,
+    },
+  });
+
   // ──────────────────────────────────────────────────────────────────────────
   // 1. Roles & Permissions
   // ──────────────────────────────────────────────────────────────────────────

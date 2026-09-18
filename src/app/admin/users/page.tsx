@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { AdminBadge, AdminRoleBadge } from "@/components/admin/admin-badge";
 import { Search, ChevronDown, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
 
 interface User {
   id: string;
@@ -26,13 +27,8 @@ interface User {
   _count: { orders: number };
 }
 
-const roleColors: Record<string, string> = {
-  admin: "bg-red-500/20 text-red-300 border-red-500/30",
-  moderator: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  user: "bg-gray-500/20 text-gray-300 border-gray-500/30",
-};
-
 export default function AdminUsersPage() {
+  const { formatDate } = useAdminPreferences();
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -161,29 +157,22 @@ export default function AdminUsersPage() {
                   {users.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-800/20 transition-colors">
                       <td className="px-6 py-4">
-                        <p className="font-medium text-white">{user.username}</p>
+                        <p className="font-medium text-white" data-admin-user-content>{user.username}</p>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-400">
-                        {user.email}
+                        <span data-admin-user-content>{user.email}</span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-400">
-                        {user.displayName || "-"}
+                        <span data-admin-user-content>{user.displayName || "-"}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1">
                           {user.roles.length > 0 ? (
                             user.roles.map((ur) => (
-                              <Badge
-                                key={ur.role.name}
-                                className={`border ${roleColors[ur.role.name.toLowerCase()] || roleColors.user}`}
-                              >
-                                {ur.role.name}
-                              </Badge>
+                              <AdminRoleBadge key={ur.role.name} role={ur.role.name} />
                             ))
                           ) : (
-                            <Badge className="border-gray-500/30 bg-gray-500/10 text-gray-400">
-                              No roles
-                            </Badge>
+                            <AdminBadge tone="neutral">No roles</AdminBadge>
                           )}
                         </div>
                       </td>
@@ -191,10 +180,10 @@ export default function AdminUsersPage() {
                         {user.minecraftAccount ? (
                           <div>
                             <p className="font-medium text-white">
-                              {user.minecraftAccount.username}
+                              <span data-admin-user-content>{user.minecraftAccount.username}</span>
                             </p>
                             <p className="text-xs text-gray-500">
-                              {user.minecraftAccount.uuid}
+                              <span data-admin-user-content>{user.minecraftAccount.uuid}</span>
                             </p>
                           </div>
                         ) : (
@@ -205,7 +194,7 @@ export default function AdminUsersPage() {
                         {user._count.orders}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-400">
-                        {new Date(user.createdAt).toLocaleDateString()}
+                        {formatDate(user.createdAt)}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <DropdownMenu>
@@ -214,11 +203,13 @@ export default function AdminUsersPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
+                              aria-label={`Actions for ${user.username}`}
+                              title="Actions"
                             >
                               <ChevronDown className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
+                          <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
                               <Link href={`/admin/users/${user.id}`}>
                                 View/Edit

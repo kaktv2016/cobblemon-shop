@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Node.js 18+ (recommended: 20 LTS)
-- PostgreSQL 14+ running and accessible
+- MySQL 8+ or MariaDB 10.6+ running and accessible
 - npm or pnpm package manager
 - Git
 
@@ -32,18 +32,19 @@ npm run dev
 Copy `.env.example` to `.env` and configure:
 
 ```env
-# REQUIRED — PostgreSQL connection string
-DATABASE_URL="postgresql://user:password@localhost:5432/cobblemart?schema=public"
+# REQUIRED — MySQL connection string
+DATABASE_URL="mysql://user:password@127.0.0.1:3306/cobbleshop"
 
 # REQUIRED — NextAuth secret (generate with: openssl rand -base64 32)
 NEXTAUTH_SECRET="your-random-secret-here"
 NEXTAUTH_URL="http://localhost:3000"
+NEXT_PUBLIC_SITE_URL="http://localhost:3000"
 
-# Payment Provider (use sandbox for development)
-PAYMENT_PROVIDER="sandbox"
-PAYMENT_PROVIDER_KEY=""
-PAYMENT_PROVIDER_SECRET=""
-PAYMENT_WEBHOOK_SECRET="webhook-secret-for-hmac"
+# New orders: Stripe-hosted PromptPay Checkout (THB only)
+PAYMENT_PROVIDER="stripe"
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+DEFAULT_CURRENCY="THB"
 
 # Delivery Mode: dry-run | webhook | rcon
 DELIVERY_MODE="dry-run"
@@ -68,9 +69,9 @@ ADMIN_PASSWORD="admin123456"
 ### Create Database
 
 ```sql
-CREATE DATABASE cobblemart;
-CREATE USER cobblemart_user WITH PASSWORD 'your-password';
-GRANT ALL PRIVILEGES ON DATABASE cobblemart TO cobblemart_user;
+CREATE DATABASE cobbleshop CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'cobblemart_user'@'localhost' IDENTIFIED BY 'your-password';
+GRANT ALL PRIVILEGES ON cobbleshop.* TO 'cobblemart_user'@'localhost';
 ```
 
 ### Run Migrations
@@ -160,10 +161,10 @@ cobblemon-shop/
 - **Service Layer Pattern**: All business logic lives in `/lib/services/`. API routes are thin wrappers.
 - **Server-Side Totals**: Cart totals and order totals are ALWAYS computed server-side. Client values are never trusted.
 - **Delivery Adapters**: Pluggable adapter pattern with DryRun, Webhook, and RCON implementations.
-- **Payment Providers**: Abstract interface with Sandbox (dev) and Stripe (prod scaffold) providers.
+- **Payment Providers**: Stripe Checkout is used for new PromptPay orders; legacy Omise routes remain for pending historical orders.
 - **Idempotent Delivery**: Every delivery job has a unique idempotency key preventing duplicate delivery.
 - **State Machine Orders**: Order status transitions are validated against an explicit transition map.
-- **Template-Based Commands**: Delivery commands use safe placeholder substitution — no arbitrary command execution.
+- **Ordered Delivery Commands**: Products can combine reusable templates and one-line custom plugin commands with allow-listed placeholders.
 - **Audit Trail**: Every admin mutation is logged to the audit_logs table.
 
 ## Payment Integration
@@ -176,21 +177,23 @@ The sandbox payment provider simulates the payment flow without real money:
 3. Payment is auto-confirmed
 4. Delivery jobs are created and processed
 
-### Stripe Integration (Production)
+### Stripe PromptPay (New Orders)
 
-To integrate Stripe:
-
-1. Install the Stripe SDK: `npm install stripe`
+1. Complete Stripe account verification and enable PromptPay in the Stripe dashboard.
 2. Set environment variables:
    ```env
    PAYMENT_PROVIDER="stripe"
-   PAYMENT_PROVIDER_KEY="pk_live_..."
-   PAYMENT_PROVIDER_SECRET="sk_live_..."
-   PAYMENT_WEBHOOK_SECRET="whsec_..."
+   STRIPE_SECRET_KEY="sk_live_..."
+   STRIPE_WEBHOOK_SECRET="whsec_..."
+   NEXT_PUBLIC_SITE_URL="https://your-domain.com"
+   DEFAULT_CURRENCY="THB"
    ```
-3. Complete the scaffold in `src/lib/payment/stripe.ts`
-4. Configure Stripe webhook endpoint: `https://your-domain.com/api/webhooks/payment`
-5. Enable webhook events: `checkout.session.completed`, `payment_intent.payment_failed`
+3. Configure the webhook endpoint: `https://your-domain.com/api/webhooks/stripe`.
+4. Subscribe to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, and `checkout.session.expired`.
+
+For local verification, forward events with Stripe CLI to
+`http://localhost:3000/api/webhooks/stripe`. Never put Stripe keys in Admin
+Settings or commit them to source control.
 
 ## Delivery Integration
 

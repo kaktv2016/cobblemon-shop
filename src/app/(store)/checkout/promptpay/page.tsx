@@ -25,6 +25,7 @@ type OrderInfo = {
   total: string;
   status: string;
   promptPayId: string;
+  provider: string;
 };
 
 function formatBaht(amount: string | number) {
@@ -82,6 +83,12 @@ export default function PromptPayCheckoutPage() {
       .then((r) => r.json())
       .then((data) => {
         if (data.error) throw new Error(data.error);
+        const latestPayment = [...(data.payments || [])].sort(
+          (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
+        )[0];
+        if (!latestPayment || !['omise', 'xendit', 'gbprimepay', 'promptpay'].includes(latestPayment.provider)) {
+          throw new Error('หน้านี้ใช้ได้เฉพาะคำสั่งซื้อจากระบบชำระเงินเดิม');
+        }
         setOrder({
           id: data.id,
           orderNumber: data.orderNumber,
@@ -89,6 +96,7 @@ export default function PromptPayCheckoutPage() {
           status: data.status,
           // PromptPay ID comes from the env (masked here for display)
           promptPayId: process.env.NEXT_PUBLIC_PROMPTPAY_DISPLAY_ID || 'xxx-xxx-xxxx',
+          provider: latestPayment.provider,
         });
         if (data.status === 'PAID' || data.status === 'QUEUED_DELIVERY') {
           setPaid(true);

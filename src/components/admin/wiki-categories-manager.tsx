@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
+import { AdminBadge } from "@/components/admin/admin-badge";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
 
 type WikiCategoryRecord = {
   id: string;
@@ -45,6 +48,8 @@ export function WikiCategoriesManager({
 }: {
   initialCategories: WikiCategoryRecord[];
 }) {
+  const { locale } = useAdminPreferences();
+  const { addToast } = useToast();
   const [categories, setCategories] = useState(initialCategories);
   const [formState, setFormState] = useState<WikiCategoryFormState>(emptyFormState);
   const [isSaving, setIsSaving] = useState(false);
@@ -60,10 +65,9 @@ export function WikiCategoriesManager({
       cache: "no-store",
     });
 
-    if (response.ok) {
-      const data = (await response.json()) as WikiCategoryRecord[];
-      setCategories(data);
-    }
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Failed to refresh wiki categories");
+    setCategories(data as WikiCategoryRecord[]);
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -87,21 +91,21 @@ export function WikiCategoriesManager({
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to save wiki category");
-      }
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to save wiki category");
 
       await refreshCategories();
+      addToast({ type: "success", message: editingId ? "Wiki category updated" : "Wiki category created" });
       resetForm();
     } catch (error) {
-      console.error("Wiki category save error:", error);
+      addToast({ type: "error", message: error instanceof Error ? error.message : "Failed to save wiki category" });
     } finally {
       setIsSaving(false);
     }
   }
 
   async function handleDelete(categoryId: string) {
-    if (!confirm("Delete this wiki category?")) {
+    if (!confirm(locale === "th" ? "ลบหมวดหมู่วิกินี้หรือไม่?" : "Delete this wiki category?")) {
       return;
     }
 
@@ -110,16 +114,16 @@ export function WikiCategoriesManager({
         method: "DELETE",
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to delete wiki category");
-      }
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to delete wiki category");
 
       await refreshCategories();
+      addToast({ type: "success", message: "Wiki category deleted" });
       if (editingId === categoryId) {
         resetForm();
       }
     } catch (error) {
-      console.error("Wiki category delete error:", error);
+      addToast({ type: "error", message: error instanceof Error ? error.message : "Failed to delete wiki category" });
     }
   }
 
@@ -316,14 +320,10 @@ export function WikiCategoriesManager({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <h3 className="text-lg font-semibold text-white">{category.name}</h3>
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-300">
-                    {category.slug}
-                  </span>
+                  <h3 className="text-lg font-semibold text-white" data-admin-user-content>{category.name}</h3>
+                  <AdminBadge tone="neutral">{category.slug}</AdminBadge>
                   {!category.isVisible ? (
-                    <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-amber-200">
-                      Hidden
-                    </span>
+                    <AdminBadge tone="warning" dot>Hidden</AdminBadge>
                   ) : null}
                 </div>
 

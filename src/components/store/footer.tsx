@@ -39,7 +39,13 @@ const footerSections = [
   },
 ];
 
-export function StoreFooter() {
+export function StoreFooter({
+  shopName = "Cobblemon Divided",
+  shopDescription = "พอร์ทัลของเซิร์ฟเวอร์ที่ออกแบบให้ผู้เล่นสัมผัสตัวตนของโลกก่อน แล้วค่อยเลือกของปลดล็อกที่เหมาะกับเส้นทางของตัวเองอย่างมีจังหวะและมีสไตล์",
+}: {
+  shopName?: string;
+  shopDescription?: string;
+}) {
   const currentYear = new Date().getFullYear();
 
   return (
@@ -55,7 +61,7 @@ export function StoreFooter() {
                 <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-white/10 bg-black/30 backdrop-blur-md">
                   <Image
                     src="/images/logo.png"
-                    alt="Cobblemon Divided"
+                    alt={shopName}
                     width={48}
                     height={48}
                     className="h-full w-full object-cover"
@@ -64,7 +70,7 @@ export function StoreFooter() {
               </div>
 
               <div>
-                <h3 className="font-display text-xl font-semibold text-white">Cobblemon Divided</h3>
+                <h3 className="font-display text-xl font-semibold text-white">{shopName}</h3>
                 <p className="mt-1 text-[10px] tracking-[0.26em] text-slate-500">
                   PREMIUM COBBLEMON PORTAL
                 </p>
@@ -72,7 +78,7 @@ export function StoreFooter() {
             </div>
 
             <p className="portal-copy mt-6 max-w-md text-sm leading-7">
-              พอร์ทัลของเซิร์ฟเวอร์ที่ออกแบบให้ผู้เล่นสัมผัสตัวตนของโลกก่อน แล้วค่อยเลือกของปลดล็อกที่เหมาะกับเส้นทางของตัวเองอย่างมีจังหวะและมีสไตล์
+              {shopDescription}
             </p>
 
             <div className="mt-6 space-y-3">
@@ -110,7 +116,7 @@ export function StoreFooter() {
 
         <div className="flex flex-col gap-4 pt-8 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
           <p>
-            © {currentYear} Cobblemon Divided. Minecraft และ Cobblemon เป็นทรัพย์สินของเจ้าของเครื่องหมายการค้าที่เกี่ยวข้อง
+            © {currentYear} {shopName}. Minecraft และ Cobblemon เป็นทรัพย์สินของเจ้าของเครื่องหมายการค้าที่เกี่ยวข้อง
           </p>
 
           <div className="flex items-center gap-4">

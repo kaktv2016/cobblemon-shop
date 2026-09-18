@@ -27,6 +27,10 @@ export default async function EditProductPage({ params }: ProductEditPageProps) 
             quantity: true,
           },
         },
+        deliveryCommands: {
+          orderBy: { sequence: "asc" },
+          select: { kind: true, templateId: true, commandTemplate: true },
+        },
       },
     }),
     prisma.category.findMany({
@@ -71,6 +75,11 @@ export default async function EditProductPage({ params }: ProductEditPageProps) 
     startDate: product.startDate ? new Date(product.startDate).toISOString().slice(0, 16) : "",
     endDate: product.endDate ? new Date(product.endDate).toISOString().slice(0, 16) : "",
     deliveryTemplateId: product.deliveryTemplateId || "",
+    deliveryCommands: product.deliveryCommands.map((command) => ({
+      kind: command.kind,
+      templateId: command.templateId,
+      commandTemplate: command.commandTemplate,
+    })),
     metadata: product.metadata as Record<string, unknown> | undefined,
     tags: product.tags.map((tag) => tag.tag),
     bundleItems: product.bundleItems.map((item) => ({

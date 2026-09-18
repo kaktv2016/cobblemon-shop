@@ -6,9 +6,9 @@ import { prisma } from "@/lib/prisma";
 /**
  * GET /api/admin/dashboard/monthly-sales
  * Returns monthly revenue + order count for the last 12 months,
- * including GBPrimePay fee deduction breakdown.
+ * including an estimated payment fee deduction breakdown.
  *
- * Fee rate is read from GBPRIMEPAY_FEE_RATE env var (default 2.5%).
+ * Fee rate is read from PAYMENT_FEE_RATE (default 1.5%).
  */
 
 const FEE_RATE = parseFloat(process.env.PAYMENT_FEE_RATE || "0.015");
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
         month: parseInt(month, 10),
         year: parseInt(year, 10),
         revenue,       // gross
-        fee,           // GBPrimePay gateway fee
+        fee,           // configured estimated payment fee
         netRevenue,    // revenue after fee
         orders: data.orders,
       };
@@ -135,6 +135,7 @@ export async function GET(request: NextRequest) {
     months,
     comparison: {
       currentMonth: {
+        key: currentMonth.key,
         label: currentMonth.fullLabel,
         revenue: currentMonth.revenue,
         fee: currentMonth.fee,
@@ -143,6 +144,7 @@ export async function GET(request: NextRequest) {
       },
       previousMonth: previousMonth
         ? {
+            key: previousMonth.key,
             label: previousMonth.fullLabel,
             revenue: previousMonth.revenue,
             fee: previousMonth.fee,
@@ -162,6 +164,7 @@ export async function GET(request: NextRequest) {
       avgMonthlyRevenue,
       avgMonthlyNetRevenue,
       bestMonth: {
+        key: bestMonth.key,
         label: bestMonth.fullLabel,
         revenue: bestMonth.revenue,
         fee: bestMonth.fee,

@@ -55,6 +55,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ...props,
         ref,
         'data-spotlight': shouldSpotlight ? '' : undefined,
+        'data-button-variant': variant ?? 'default',
         className: cn(buttonClassName, child.props.className),
       });
     }
@@ -63,6 +64,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         data-spotlight={shouldSpotlight ? '' : undefined}
+        data-button-variant={variant ?? 'default'}
         className={buttonClassName}
         {...props}
       >

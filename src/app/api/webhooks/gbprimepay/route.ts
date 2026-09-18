@@ -48,12 +48,12 @@ export async function POST(request: NextRequest) {
       const order = await prisma.order.findUnique({
         where: { id: orderId },
         include: {
-          payments: { orderBy: { createdAt: 'desc' }, take: 1 },
+          payments: { where: { provider: 'gbprimepay', providerTransactionId: event.paymentId }, take: 1 },
         },
       });
 
-      if (!order) {
-        console.error(`[GBPrimePay webhook] Order ${orderId} not found`);
+      if (!order || !order.payments[0]) {
+        console.error(`[GBPrimePay webhook] No matching legacy transaction for order ${orderId}`);
         return NextResponse.json({ received: true }, { status: 200 });
       }
 
@@ -67,15 +67,7 @@ export async function POST(request: NextRequest) {
             data: { status: 'PAID' },
           });
 
-          if (order.payments[0]) {
-            await tx.paymentTransaction.update({
-              where: { id: order.payments[0].id },
-              data: {
-                status: 'COMPLETED',
-                providerTransactionId: event.paymentId,
-              },
-            });
-          }
+          await tx.paymentTransaction.update({ where: { id: order.payments[0].id }, data: { status: 'COMPLETED' } });
 
           await tx.auditLog.create({
             data: {

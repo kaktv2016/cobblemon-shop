@@ -42,7 +42,7 @@ const navLinks = [
 
 const prefetchRoutes = ['/', '/store', '/wiki', '/news', '/support', '/login', '/register', '/cart', '/download'];
 
-export function StoreNavbar() {
+export function StoreNavbar({ shopName = "Cobblemon Divided" }: { shopName?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -89,7 +89,7 @@ export function StoreNavbar() {
               <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-white/10 bg-black/30 backdrop-blur-md">
                 <Image
                   src="/images/logo.png"
-                  alt="Cobblemon Divided"
+                  alt={shopName}
                   width={48}
                   height={48}
                   className="h-full w-full object-cover"
@@ -100,7 +100,7 @@ export function StoreNavbar() {
 
             <div className="hidden min-w-0 flex-col sm:flex">
               <span className="font-display text-[1.05rem] font-semibold leading-none text-white">
-                Cobblemon Divided
+                {shopName}
               </span>
               <span className="mt-1 text-[10px] tracking-[0.26em] text-slate-500">
                 PREMIUM COBBLEMON PORTAL

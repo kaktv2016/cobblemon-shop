@@ -44,7 +44,7 @@ function getMetadataValue(
 /**
  * Render a delivery command template with safe variable substitution
  */
-function renderTemplate(
+export function renderDeliveryTemplate(
   template: string,
   variables: Record<string, string | number>
 ): string {
@@ -87,7 +87,7 @@ function buildDeliveryCommand(
         .replaceAll("{quantity}", "{delivery_amount}")
     : template.commandTemplate;
 
-  return renderTemplate(commandTemplate, {
+  return renderDeliveryTemplate(commandTemplate, {
     player_name: order.playerName || "",
     player_uuid: order.playerUuid || "",
     order_id: order.id,
@@ -102,11 +102,8 @@ function buildDeliveryCommand(
 /**
  * Generate idempotency key for delivery deduplication
  */
-function generateIdempotencyKey(
-  orderItemId: string,
-  attempt: number
-): string {
-  const raw = `delivery-${orderItemId}-${attempt}`;
+export function generateDeliveryIdempotencyKey(orderItemId: string, sequence: number): string {
+  const raw = `delivery-${orderItemId}-command-${sequence}`;
   return createHash("sha256").update(raw).digest("hex").substring(0, 64);
 }
 
@@ -125,7 +122,13 @@ export class DeliveryService {
         items: {
           include: {
             product: {
-              include: { deliveryTemplate: true },
+              include: {
+                deliveryTemplate: true,
+                deliveryCommands: {
+                  orderBy: { sequence: "asc" },
+                  include: { template: true },
+                },
+              },
             },
           },
         },
@@ -142,12 +145,17 @@ export class DeliveryService {
       throw new Error(`Order must be paid before delivery (current: ${order.status})`);
     }
 
-    const invalidItem = order.items.find(
-      (item) =>
-        !item.product
-        || !item.product.deliveryTemplate
-        || !item.product.deliveryTemplate.isActive
-    );
+    const invalidItem = order.items.find((item) => {
+      if (!item.product) return true;
+      if (item.product.deliveryCommands.length === 0) {
+        return !item.product.deliveryTemplate?.isActive;
+      }
+      return item.product.deliveryCommands.some((command) =>
+        command.kind === "TEMPLATE"
+          ? !command.template?.isActive
+          : !command.commandTemplate?.trim()
+      );
+    });
     if (invalidItem) {
       throw new Error(`No active delivery template for product "${invalidItem.productName}"`);
     }
@@ -156,36 +164,56 @@ export class DeliveryService {
 
     for (const item of order.items) {
       const product = item.product!;
-      const template = product.deliveryTemplate!;
+      const definitions = product.deliveryCommands.length > 0
+        ? product.deliveryCommands.map((command) => ({
+            id: command.id,
+            sequence: command.sequence,
+            templateId: command.templateId,
+            commandTemplate: command.kind === "TEMPLATE"
+              ? command.template!.commandTemplate
+              : command.commandTemplate!,
+          }))
+        : [{
+            id: null,
+            sequence: 0,
+            templateId: product.deliveryTemplate!.id,
+            commandTemplate: product.deliveryTemplate!.commandTemplate,
+          }];
 
-      const renderedCommand = buildDeliveryCommand(template, product, item, order);
+      for (const definition of definitions) {
+        const renderedCommand = buildDeliveryCommand(
+          { commandTemplate: definition.commandTemplate },
+          product,
+          item,
+          order
+        );
+        const idempotencyKey = generateDeliveryIdempotencyKey(item.id, definition.sequence);
+        const job = await prisma.deliveryJob.upsert({
+          where: { idempotencyKey },
+          update: {},
+          create: {
+            orderId,
+            orderItemId: item.id,
+            idempotencyKey,
+            templateId: definition.templateId,
+            productDeliveryCommandId: definition.id,
+            sequence: definition.sequence,
+            renderedCommand,
+            status: "PENDING",
+            attempts: 0,
+            maxAttempts: 3,
+            isDryRun: process.env.DELIVERY_MODE === "dry-run",
+          },
+        });
+        jobs.push(job);
+      }
 
-      const idempotencyKey = generateIdempotencyKey(item.id, 0);
-
-      const job = await prisma.deliveryJob.upsert({
-        where: { idempotencyKey },
-        update: {},
-        create: {
-          orderId,
-          orderItemId: item.id,
-          idempotencyKey,
-          templateId: template.id,
-          renderedCommand,
-          status: "PENDING",
-          attempts: 0,
-          maxAttempts: 3,
-          isDryRun: process.env.DELIVERY_MODE === "dry-run",
-        },
-      });
-
-      if (job.status !== "SUCCESS") {
+      if (jobs.some((job) => job.orderItemId === item.id && job.status !== "SUCCESS")) {
         await prisma.orderItem.update({
           where: { id: item.id },
           data: { deliveryStatus: "QUEUED" },
         });
       }
-
-      jobs.push(job);
     }
 
     if (jobs.length === 0) {
@@ -222,13 +250,7 @@ export class DeliveryService {
       where: { id: jobId },
       include: {
         order: true,
-        orderItem: {
-          include: {
-            product: {
-              include: { deliveryTemplate: true },
-            },
-          },
-        },
+        orderItem: true,
       },
     });
 
@@ -241,6 +263,17 @@ export class DeliveryService {
 
     if (job.status !== "PENDING") {
       return { success: false, message: `Cannot process job in status: ${job.status}` };
+    }
+
+    const unfinishedPreviousCommands = await prisma.deliveryJob.count({
+      where: {
+        orderItemId: job.orderItemId,
+        sequence: { lt: job.sequence },
+        status: { not: "SUCCESS" },
+      },
+    });
+    if (unfinishedPreviousCommands > 0) {
+      return { success: false, blocked: true, message: "Waiting for a previous command" };
     }
 
     // Claim the job atomically so concurrent queue runners cannot deliver it twice.
@@ -257,25 +290,7 @@ export class DeliveryService {
       return { success: false, message: "Delivery job is already being processed" };
     }
 
-    const currentProduct = job.orderItem.product;
-    const currentTemplate = currentProduct?.deliveryTemplate;
-    const commandToExecute =
-      currentProduct && currentTemplate?.isActive
-        ? buildDeliveryCommand(currentTemplate, currentProduct, job.orderItem, job.order)
-        : job.renderedCommand;
-
-    if (
-      commandToExecute !== job.renderedCommand ||
-      (currentTemplate && currentTemplate.id !== job.templateId)
-    ) {
-      await prisma.deliveryJob.update({
-        where: { id: jobId },
-        data: {
-          renderedCommand: commandToExecute,
-          ...(currentTemplate ? { templateId: currentTemplate.id } : {}),
-        },
-      });
-    }
+    const commandToExecute = job.renderedCommand;
 
     let result: DeliveryResult;
     try {
@@ -318,11 +333,15 @@ export class DeliveryService {
         },
       });
 
-      // Update order item delivery status
-      await prisma.orderItem.update({
-        where: { id: job.orderItemId },
-        data: { deliveryStatus: "DELIVERED", deliveredAt: new Date() },
+      const remainingCommands = await prisma.deliveryJob.count({
+        where: { orderItemId: job.orderItemId, id: { not: jobId }, status: { not: "SUCCESS" } },
       });
+      if (remainingCommands === 0) {
+        await prisma.orderItem.update({
+          where: { id: job.orderItemId },
+          data: { deliveryStatus: "DELIVERED", deliveredAt: new Date() },
+        });
+      }
 
       // Check if full order is delivered
       await this.checkOrderDeliveryComplete(job.orderId);
@@ -498,7 +517,7 @@ export class DeliveryService {
       where: { status: "PENDING", ...(jobId ? { id: jobId } : {}) },
       select: { id: true },
       take: Math.min(Math.max(batchSize, 1), 100),
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ sequence: "asc" }, { createdAt: "asc" }],
     });
 
     if (jobs.length === 0) return { queued: 0 };
@@ -524,7 +543,7 @@ export class DeliveryService {
         ],
       },
       take: batchSize,
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ sequence: "asc" }, { createdAt: "asc" }],
     });
 
     let succeeded = 0;
@@ -552,7 +571,9 @@ export class DeliveryService {
     page: number = 1,
     limit: number = 50
   ) {
-    const skip = (page - 1) * limit;
+    const validPage = Math.max(1, Math.floor(page));
+    const validLimit = Math.min(100, Math.max(1, Math.floor(limit)));
+    const skip = (validPage - 1) * validLimit;
     const where = status ? { status: status as DeliveryJobStatus } : {};
 
     const [jobs, total] = await Promise.all([
@@ -565,13 +586,19 @@ export class DeliveryService {
           _count: { select: { logs: true } },
         },
         skip,
-        take: limit,
+        take: validLimit,
         orderBy: { createdAt: "desc" },
       }),
       prisma.deliveryJob.count({ where }),
     ]);
 
-    return { data: jobs, total, page, limit, pages: Math.ceil(total / limit) };
+    return {
+      data: jobs,
+      total,
+      page: validPage,
+      limit: validLimit,
+      pages: Math.ceil(total / validLimit),
+    };
   }
 
   /**
@@ -580,10 +607,13 @@ export class DeliveryService {
   static async getDeliveryLogs(
     jobId?: string,
     page: number = 1,
-    limit: number = 50
+    limit: number = 50,
+    status?: DeliveryJobStatus,
   ) {
-    const skip = (page - 1) * limit;
-    const where = jobId ? { jobId } : {};
+    const validPage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+    const validLimit = Number.isFinite(limit) ? Math.min(100, Math.max(1, Math.floor(limit))) : 50;
+    const skip = (validPage - 1) * validLimit;
+    const where = { ...(jobId ? { jobId } : {}), ...(status ? { status } : {}) };
 
     const [logs, total] = await Promise.all([
       prisma.deliveryLog.findMany({
@@ -598,13 +628,31 @@ export class DeliveryService {
           },
         },
         skip,
-        take: limit,
+        take: validLimit,
         orderBy: { executedAt: "desc" },
       }),
       prisma.deliveryLog.count({ where }),
     ]);
 
-    return { data: logs, total, page, limit, pages: Math.ceil(total / limit) };
+    return {
+      data: logs.map((log) => ({
+        id: log.id,
+        jobId: log.jobId,
+        orderId: log.job.orderId,
+        orderNumber: log.job.order.orderNumber,
+        playerName: log.job.order.playerName || "-",
+        attemptNumber: log.attempt,
+        status: log.status,
+        command: log.command,
+        response: log.response,
+        error: log.error,
+        executedAt: log.executedAt,
+      })),
+      total,
+      page: validPage,
+      limit: validLimit,
+      pages: Math.ceil(total / validLimit),
+    };
   }
 
   /**

@@ -2,17 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-
-const updateAnnouncementSchema = z.object({
-  title: z.string().min(1).max(256).optional(),
-  content: z.string().min(1).max(5000).optional(),
-  type: z.enum(["INFO", "WARNING", "SALE", "EVENT", "MAINTENANCE"]).optional(),
-  isActive: z.boolean().optional(),
-  startsAt: z.string().datetime().optional().nullable(),
-  endsAt: z.string().datetime().optional().nullable(),
-  sortOrder: z.number().int().optional(),
-});
+import { revalidatePath, revalidateTag } from "next/cache";
+import { PUBLIC_NEWS_TAG } from "@/lib/public-store-cache";
+import { isValidAnnouncementDateRange, updateAnnouncementSchema } from "@/lib/validators/announcement";
 
 export async function GET(
   request: NextRequest,
@@ -56,6 +48,16 @@ export async function PUT(
     const body = await request.json();
     const validated = updateAnnouncementSchema.parse(body);
 
+    const current = await prisma.announcement.findUnique({ where: { id } });
+    if (!current) {
+      return NextResponse.json({ error: "Announcement not found" }, { status: 404 });
+    }
+    const startDate = validated.startDate === undefined ? current.startDate : validated.startDate;
+    const endDate = validated.endDate === undefined ? current.endDate : validated.endDate;
+    if (!isValidAnnouncementDateRange(startDate, endDate)) {
+      return NextResponse.json({ error: "End date must be after start date" }, { status: 400 });
+    }
+
     const announcement = await prisma.announcement.update({
       where: { id },
       data: validated,
@@ -71,6 +73,9 @@ export async function PUT(
         details: validated,
       },
     });
+
+    revalidateTag(PUBLIC_NEWS_TAG);
+    revalidatePath("/news");
 
     return NextResponse.json(announcement);
   } catch (error: any) {
@@ -104,6 +109,9 @@ export async function DELETE(
         details: {},
       },
     });
+
+    revalidateTag(PUBLIC_NEWS_TAG);
+    revalidatePath("/news");
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -6,8 +6,9 @@ import { useSearchParams } from "next/navigation";
 import { Loader2, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { AdminStatusBadge } from "@/components/admin/admin-badge";
 import { Input } from "@/components/ui/input";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
 
 interface DeliveryLog {
   id: string;
@@ -19,15 +20,8 @@ interface DeliveryLog {
   command: string;
   response: string | null;
   error: string | null;
-  createdAt: string;
+  executedAt: string;
 }
-
-const statusColors: Record<string, string> = {
-  SUCCESS: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  FAILED: "bg-red-500/20 text-red-300 border-red-500/30",
-  PENDING: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
-  PROCESSING: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-};
 
 function truncate(value: string, maxLength: number = 40) {
   return value.length > maxLength ? `${value.substring(0, maxLength)}...` : value;
@@ -42,6 +36,7 @@ function DeliveryLogsSkeleton() {
 }
 
 function DeliveryLogsPageContent() {
+  const { formatDate } = useAdminPreferences();
   const searchParams = useSearchParams();
   const jobIdFilter = searchParams.get("jobId") || "";
 
@@ -172,7 +167,7 @@ function DeliveryLogsPageContent() {
                     <Fragment key={log.id}>
                       <tr className="transition-colors hover:bg-gray-800/20">
                         <td className="px-6 py-4 text-sm text-gray-400">
-                          {new Date(log.createdAt).toLocaleString()}
+                          {formatDate(log.executedAt, { dateStyle: "medium", timeStyle: "short" })}
                         </td>
                         <td className="px-6 py-4">
                           <p className="font-mono text-sm text-gray-400">
@@ -190,15 +185,11 @@ function DeliveryLogsPageContent() {
                         <td className="px-6 py-4 text-sm text-gray-400">{log.playerName}</td>
                         <td className="px-6 py-4 text-sm text-gray-400">#{log.attemptNumber}</td>
                         <td className="px-6 py-4">
-                          <Badge
-                            className={`border ${statusColors[log.status] || statusColors.PENDING}`}
-                          >
-                            {log.status}
-                          </Badge>
+                          <AdminStatusBadge status={log.status} />
                         </td>
                         <td className="px-6 py-4">
                           <p className="max-w-xs truncate font-mono text-xs text-gray-500">
-                            {truncate(log.command, 30)}
+                            <span data-admin-user-content>{truncate(log.command, 30)}</span>
                           </p>
                         </td>
                         <td className="px-6 py-4 text-right">
@@ -223,7 +214,7 @@ function DeliveryLogsPageContent() {
                                 <div>
                                   <p className="mb-1 text-xs font-medium text-gray-500">Command:</p>
                                   <p className="break-all rounded bg-gray-900/50 p-2 font-mono text-sm text-gray-300">
-                                    {log.command}
+                                    <span data-admin-user-content>{log.command}</span>
                                   </p>
                                 </div>
                               )}

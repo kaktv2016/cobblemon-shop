@@ -5,13 +5,15 @@ import Link from "next/link";
 import { Plus, ChevronDown, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { AdminBadge } from "@/components/admin/admin-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
+import type { AdminTone } from "@/lib/admin-ui";
 
 interface Coupon {
   id: string;
@@ -31,15 +33,7 @@ interface Coupon {
   };
 }
 
-function formatMoney(value: number | string | null) {
-  if (value === null) {
-    return "-";
-  }
-
-  return `THB ${Number(value).toLocaleString()}`;
-}
-
-function getStatusBadge(coupon: Coupon) {
+function getStatusBadge(coupon: Coupon): { label: string; tone: AdminTone } {
   const now = new Date();
   const startDate = coupon.startDate ? new Date(coupon.startDate) : null;
   const endDate = coupon.endDate ? new Date(coupon.endDate) : null;
@@ -47,38 +41,39 @@ function getStatusBadge(coupon: Coupon) {
   if (!coupon.isActive) {
     return {
       label: "Inactive",
-      color: "bg-gray-500/20 text-gray-300 border-gray-500/30",
+      tone: "neutral",
     };
   }
 
   if (endDate && now > endDate) {
     return {
       label: "Expired",
-      color: "bg-red-500/20 text-red-300 border-red-500/30",
+      tone: "danger",
     };
   }
 
   if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
     return {
       label: "Depleted",
-      color: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+      tone: "warning",
     };
   }
 
   if (startDate && now < startDate) {
     return {
       label: "Pending",
-      color: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+      tone: "info",
     };
   }
 
   return {
     label: "Active",
-    color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+    tone: "success",
   };
 }
 
 export default function AdminCouponsPage() {
+  const { formatCurrency, formatDate, locale } = useAdminPreferences();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -127,7 +122,7 @@ export default function AdminCouponsPage() {
   }
 
   async function deleteCoupon(couponId: string) {
-    if (!confirm("Are you sure you want to delete this coupon?")) {
+    if (!confirm(locale === "th" ? "ลบคูปองนี้หรือไม่?" : "Are you sure you want to delete this coupon?")) {
       return;
     }
 
@@ -208,19 +203,19 @@ export default function AdminCouponsPage() {
                     return (
                       <tr key={coupon.id} className="transition-colors hover:bg-gray-800/20">
                         <td className="px-6 py-4">
-                          <p className="font-medium text-white">{coupon.code}</p>
+                          <p className="font-medium text-white" data-admin-user-content>{coupon.code}</p>
                           {coupon.description && (
-                            <p className="mt-1 text-xs text-gray-500">{coupon.description}</p>
+                            <p className="mt-1 text-xs text-gray-500" data-admin-user-content>{coupon.description}</p>
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <Badge className="border-gray-500/30 bg-gray-500/10 text-gray-300">
+                          <AdminBadge tone="neutral">
                             {coupon.discountType === "FIXED" ? "Fixed" : "Percent"}
-                          </Badge>
+                          </AdminBadge>
                         </td>
                         <td className="px-6 py-4 text-sm font-medium text-white">
                           {coupon.discountType === "FIXED"
-                            ? formatMoney(coupon.discountValue)
+                            ? formatCurrency(Number(coupon.discountValue))
                             : `${coupon.discountValue}%`}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-400">
@@ -231,19 +226,19 @@ export default function AdminCouponsPage() {
                           {coupon.perUserLimit}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-400">
-                          {formatMoney(coupon.minCartValue)}
+                          {coupon.minCartValue === null ? "-" : formatCurrency(Number(coupon.minCartValue))}
                         </td>
                         <td className="px-6 py-4">
-                          <Badge className={`border ${status.color}`}>{status.label}</Badge>
+                          <AdminBadge tone={status.tone} dot>{status.label}</AdminBadge>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-400">
                           <div>
                             {coupon.startDate && (
-                              <p>{new Date(coupon.startDate).toLocaleDateString()}</p>
+                              <p>{formatDate(coupon.startDate)}</p>
                             )}
                             {coupon.endDate && (
                               <p className="text-xs">
-                                to {new Date(coupon.endDate).toLocaleDateString()}
+                                to {formatDate(coupon.endDate)}
                               </p>
                             )}
                             {!coupon.startDate && !coupon.endDate && <p>-</p>}
@@ -252,11 +247,17 @@ export default function AdminCouponsPage() {
                         <td className="px-6 py-4 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                aria-label={`Actions for coupon ${coupon.code}`}
+                                title="Actions"
+                              >
                                 <ChevronDown className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="border-gray-700 bg-gray-800">
+                            <DropdownMenuContent align="end">
                               <DropdownMenuItem asChild>
                                 <Link href={`/admin/coupons/${coupon.id}`}>Edit</Link>
                               </DropdownMenuItem>

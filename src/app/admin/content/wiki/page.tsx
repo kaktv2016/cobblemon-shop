@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/admin/auth";
 import { Button } from "@/components/ui/button";
 import { WikiArticleActions } from "@/components/admin/wiki-article-actions";
+import { AdminBadge } from "@/components/admin/admin-badge";
+import { getAdminI18n } from "@/lib/admin-i18n-server";
+import { formatAdminDate, translateAdminStatus } from "@/lib/admin-i18n";
 
 export const metadata = {
   title: "Wiki Articles - Admin",
@@ -22,6 +25,7 @@ export default async function WikiArticlesAdminPage({
   searchParams,
 }: WikiArticlesAdminPageProps) {
   await requireAdminSession();
+  const { locale } = await getAdminI18n();
 
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
@@ -142,23 +146,21 @@ export default async function WikiArticlesAdminPage({
               <div className="flex items-start justify-between gap-5">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="text-xl font-semibold text-white">{article.title}</h2>
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-300">
-                      {article.status}
-                    </span>
+                    <h2 className="text-xl font-semibold text-white" data-admin-user-content>{article.title}</h2>
+                    <AdminBadge tone={article.status === "PUBLISHED" ? "success" : "neutral"}>
+                      {translateAdminStatus(locale, article.status)}
+                    </AdminBadge>
                     {article.isFeatured ? (
-                      <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-cyan-200">
-                        Featured
-                      </span>
+                      <AdminBadge tone="info" dot>Featured</AdminBadge>
                     ) : null}
                   </div>
 
-                  <p className="mt-3 text-sm leading-7 text-slate-400">{article.excerpt}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-400" data-admin-user-content>{article.excerpt}</p>
 
                   <div className="mt-4 flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.18em] text-slate-500">
                     <span>{article.category.name}</span>
                     <span>{article.slug}</span>
-                    <span>Updated {new Date(article.updatedAt).toLocaleDateString()}</span>
+                    <span>Updated {formatAdminDate(article.updatedAt, locale)}</span>
                   </div>
                 </div>
 

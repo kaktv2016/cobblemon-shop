@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { AdminStatusBadge } from "@/components/admin/admin-badge";
 import {
   Play,
   RotateCcw,
@@ -22,6 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/components/ui/toast";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
 
 interface DeliveryJob {
   id: string;
@@ -44,17 +46,10 @@ interface Stats {
   completed: number;
 }
 
-function truncate(str: string, maxLength: number = 40): string {
+function truncate(value: string | null | undefined, maxLength: number = 40): string {
+  const str = value || "-";
   return str.length > maxLength ? str.substring(0, maxLength) + "..." : str;
 }
-
-const statusColors: Record<string, string> = {
-  PENDING: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
-  PROCESSING: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  SUCCESS: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  FAILED: "bg-red-500/20 text-red-300 border-red-500/30",
-  SKIPPED: "bg-gray-500/20 text-gray-300 border-gray-500/30",
-};
 
 const statusIcons: Record<string, React.ComponentType<any>> = {
   PENDING: Clock,
@@ -65,6 +60,8 @@ const statusIcons: Record<string, React.ComponentType<any>> = {
 };
 
 export default function AdminDeliveryPage() {
+  const { addToast } = useToast();
+  const { formatDate } = useAdminPreferences();
   const [jobs, setJobs] = useState<DeliveryJob[]>([]);
   const [stats, setStats] = useState<Stats>({
     pending: 0,
@@ -95,26 +92,12 @@ export default function AdminDeliveryPage() {
         limit: "50",
       });
       const res = await fetch(`/api/admin/delivery?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setJobs(data.data);
-
-        // Calculate stats
-        const allRes = await fetch("/api/admin/delivery");
-        if (allRes.ok) {
-          const allData = await allRes.json();
-          const allJobs = allData.data;
-          setStats({
-            pending: allJobs.filter((j: DeliveryJob) => j.status === "PENDING").length,
-            processing: allJobs.filter((j: DeliveryJob) => j.status === "PROCESSING")
-              .length,
-            failed: allJobs.filter((j: DeliveryJob) => j.status === "FAILED").length,
-            completed: allJobs.filter((j: DeliveryJob) => j.status === "SUCCESS").length,
-          });
-        }
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to load delivery queue");
+      setJobs(data.data);
+      setStats(data.stats);
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to load delivery queue" });
     } finally {
       setLoading(false);
     }
@@ -128,11 +111,12 @@ export default function AdminDeliveryPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "process_queue", batchSize: 10 }),
       });
-      if (res.ok) {
-        fetchJobs();
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to wake delivery queue");
+      await fetchJobs();
+      addToast({ type: "success", message: `${data.queued || 0} job(s) queued` });
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to wake delivery queue" });
     } finally {
       setProcessing(false);
     }
@@ -145,11 +129,12 @@ export default function AdminDeliveryPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "process_job", jobId }),
       });
-      if (res.ok) {
-        fetchJobs();
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to queue delivery job");
+      await fetchJobs();
+      addToast({ type: "success", message: "Delivery job queued" });
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to queue delivery job" });
     }
   }
 
@@ -160,11 +145,12 @@ export default function AdminDeliveryPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "retry", jobId }),
       });
-      if (res.ok) {
-        fetchJobs();
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to retry delivery job");
+      await fetchJobs();
+      addToast({ type: "success", message: "Failed command queued for retry" });
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to retry delivery job" });
     }
   }
 
@@ -340,22 +326,18 @@ export default function AdminDeliveryPage() {
                           </td>
                           <td className="px-6 py-4 text-sm">
                             <p className="font-mono text-xs text-gray-500 max-w-xs truncate">
-                              {truncate(job.command, 30)}
+                              <span data-admin-user-content>{truncate(job.command, 30)}</span>
                             </p>
                           </td>
                           <td className="px-6 py-4">
-                            <Badge
-                              className={`border ${statusColors[job.status] || statusColors.PENDING}`}
-                            >
-                              {job.status}
-                            </Badge>
+                            <AdminStatusBadge status={job.status} />
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-400">
                             {job.attempts}/{job.maxAttempts}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-400">
                             {job.lastAttemptAt
-                              ? new Date(job.lastAttemptAt).toLocaleTimeString()
+                              ? formatDate(job.lastAttemptAt, { timeStyle: "medium" })
                               : "-"}
                           </td>
                           <td className="px-6 py-4 text-right">
@@ -365,14 +347,13 @@ export default function AdminDeliveryPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8"
+                                  aria-label={`Actions for delivery job ${job.id}`}
+                                  title="Actions"
                                 >
                                   <ChevronDown className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                align="end"
-                                className="bg-gray-800 border-gray-700"
-                              >
+                              <DropdownMenuContent align="end">
                                 {job.status === "PENDING" && (
                                   <DropdownMenuItem onClick={() => processJob(job.id)}>
                                     <Play className="mr-2 h-4 w-4" />

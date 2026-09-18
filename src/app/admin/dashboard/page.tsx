@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { AdminStatusBadge } from "@/components/admin/admin-badge";
 import {
   DollarSign,
   ShoppingCart,
@@ -13,14 +13,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import MonthlySalesChart from "@/components/admin/monthly-sales-chart";
+import { getAdminI18n } from "@/lib/admin-i18n-server";
+import { formatAdminCurrency, formatAdminDate } from "@/lib/admin-i18n";
 
 export const metadata = {
   title: "Dashboard — Admin",
 };
-
-function formatPrice(price: any): string {
-  return `฿${Number(price).toLocaleString()}`;
-}
 
 async function getDashboardData() {
   const [
@@ -76,31 +74,33 @@ async function getDashboardData() {
 
 export default async function AdminDashboardPage() {
   const data = await getDashboardData();
+  const { locale, t } = await getAdminI18n();
+  const formatPrice = (price: unknown) => formatAdminCurrency(Number(price), locale);
 
   const statCards = [
     {
-      title: "Total Revenue",
+      title: t("dashboard.totalRevenue"),
       value: formatPrice(data.revenue),
       icon: DollarSign,
       color: "text-emerald-400",
       bgColor: "bg-emerald-500/10 border-emerald-500/20",
     },
     {
-      title: "Total Orders",
+      title: t("dashboard.totalOrders"),
       value: data.orderCount.toString(),
       icon: ShoppingCart,
       color: "text-indigo-400",
       bgColor: "bg-indigo-500/10 border-indigo-500/20",
     },
     {
-      title: "Total Users",
+      title: t("dashboard.totalUsers"),
       value: data.userCount.toString(),
       icon: Users,
       color: "text-purple-400",
       bgColor: "bg-purple-500/10 border-purple-500/20",
     },
     {
-      title: "Active Products",
+      title: t("dashboard.activeProducts"),
       value: data.productCount.toString(),
       icon: Package,
       color: "text-amber-400",
@@ -111,8 +111,8 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-outfit text-3xl font-bold text-white">Dashboard</h1>
-        <p className="mt-1 text-gray-400">Overview of your shop performance</p>
+        <h1 className="font-outfit text-3xl font-bold text-white">{t("dashboard.title")}</h1>
+        <p className="mt-1 text-gray-400">{t("dashboard.subtitle")}</p>
       </div>
 
       {/* Alert for failed deliveries */}
@@ -121,14 +121,14 @@ export default async function AdminDashboardPage() {
           <AlertTriangle className="h-5 w-5 text-red-400" />
           <div className="flex-1">
             <p className="font-medium text-red-300">
-              {data.failedDeliveries} failed delivery job{data.failedDeliveries > 1 ? "s" : ""} need attention
+              {t("dashboard.failedJobs", { count: data.failedDeliveries })}
             </p>
           </div>
           <Link
             href="/admin/delivery"
             className="text-sm font-medium text-red-400 hover:text-red-300"
           >
-            View Queue →
+            {t("dashboard.viewQueue")}
           </Link>
         </div>
       )}
@@ -168,7 +168,7 @@ export default async function AdminDashboardPage() {
               <Clock className="h-5 w-5 text-amber-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-400">Pending Payment</p>
+              <p className="text-sm text-gray-400">{t("dashboard.pendingPayment")}</p>
               <p className="text-lg font-bold text-white">{data.pendingOrders}</p>
             </div>
           </CardContent>
@@ -179,7 +179,7 @@ export default async function AdminDashboardPage() {
               <TrendingUp className="h-5 w-5 text-indigo-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-400">Processing</p>
+              <p className="text-sm text-gray-400">{t("dashboard.processing")}</p>
               <p className="text-lg font-bold text-white">{data.processingOrders}</p>
             </div>
           </CardContent>
@@ -190,7 +190,7 @@ export default async function AdminDashboardPage() {
               <AlertTriangle className="h-5 w-5 text-red-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-400">Failed Deliveries</p>
+              <p className="text-sm text-gray-400">{t("dashboard.failedDeliveries")}</p>
               <p className="text-lg font-bold text-white">{data.failedDeliveries}</p>
             </div>
           </CardContent>
@@ -200,10 +200,10 @@ export default async function AdminDashboardPage() {
       {/* Monthly Sales Analytics */}
       <div className="space-y-2">
         <h2 className="font-outfit text-xl font-semibold text-white">
-          Monthly Sales Analytics
+          {t("dashboard.monthlyAnalytics")}
         </h2>
         <p className="text-sm text-gray-400">
-          Revenue & order trends for the last 12 months
+          {t("dashboard.monthlySubtitle")}
         </p>
       </div>
       <MonthlySalesChart />
@@ -212,9 +212,9 @@ export default async function AdminDashboardPage() {
         {/* Recent Orders */}
         <Card className="border-gray-800/50 bg-gray-900/50">
           <CardHeader className="flex flex-row items-center justify-between pb-4">
-            <CardTitle className="text-lg text-white">Recent Orders</CardTitle>
+            <CardTitle className="text-lg text-white">{t("dashboard.recentOrders")}</CardTitle>
             <Link href="/admin/orders" className="text-sm text-indigo-400 hover:text-indigo-300">
-              View All →
+              {t("dashboard.viewAll")}
             </Link>
           </CardHeader>
           <CardContent className="p-0">
@@ -231,32 +231,20 @@ export default async function AdminDashboardPage() {
                         {order.orderNumber}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {order.user?.username} · {order._count.items} items
+                        {order.user?.username} · {t("dashboard.items", { count: order._count.items })}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-white">
                         {formatPrice(order.total)}
                       </p>
-                      <Badge
-                        className={`text-xs ${
-                          order.status === "DELIVERED"
-                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                            : order.status === "PENDING_PAYMENT"
-                              ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                              : order.status === "FAILED_DELIVERY"
-                                ? "border-red-500/30 bg-red-500/10 text-red-400"
-                                : "border-indigo-500/30 bg-indigo-500/10 text-indigo-400"
-                        }`}
-                      >
-                        {order.status.replace(/_/g, " ")}
-                      </Badge>
+                      <AdminStatusBadge status={order.status} className="text-xs" />
                     </div>
                   </Link>
                 ))
               ) : (
                 <p className="px-6 py-8 text-center text-sm text-gray-500">
-                  No orders yet
+                  {t("dashboard.noOrders")}
                 </p>
               )}
             </div>
@@ -266,9 +254,9 @@ export default async function AdminDashboardPage() {
         {/* Recent Users */}
         <Card className="border-gray-800/50 bg-gray-900/50">
           <CardHeader className="flex flex-row items-center justify-between pb-4">
-            <CardTitle className="text-lg text-white">Recent Signups</CardTitle>
+            <CardTitle className="text-lg text-white">{t("dashboard.recentSignups")}</CardTitle>
             <Link href="/admin/users" className="text-sm text-indigo-400 hover:text-indigo-300">
-              View All →
+              {t("dashboard.viewAll")}
             </Link>
           </CardHeader>
           <CardContent className="p-0">
@@ -283,12 +271,12 @@ export default async function AdminDashboardPage() {
                       {user.username[0].toUpperCase()}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-white">{user.username}</p>
-                      <p className="text-xs text-gray-500">{user.email}</p>
+                      <p className="text-sm font-medium text-white" data-admin-user-content>{user.username}</p>
+                      <p className="text-xs text-gray-500" data-admin-user-content>{user.email}</p>
                     </div>
                   </div>
                   <p className="text-xs text-gray-500">
-                    {new Date(user.createdAt).toLocaleDateString()}
+                    {formatAdminDate(user.createdAt, locale)}
                   </p>
                 </div>
               ))}

@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { AdminBadge } from "@/components/admin/admin-badge";
 import { Input } from "@/components/ui/input";
 import { Loader2, ChevronDown, ChevronUp, Download } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
+import type { AdminTone } from "@/lib/admin-ui";
 
 interface AuditLog {
   id: string;
@@ -14,24 +17,23 @@ interface AuditLog {
   action: string;
   target: string;
   targetId: string | null;
-  details: Record<string, any>;
+  details: Record<string, any> | null;
   ipAddress: string | null;
   createdAt: string;
 }
 
-const actionColors: Record<string, string> = {
-  CREATE: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  UPDATE: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  DELETE: "bg-red-500/20 text-red-300 border-red-500/30",
-  CREATE_COUPON: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
-  UPDATE_COUPON: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
-  DELETE_COUPON: "bg-red-500/20 text-red-300 border-red-500/30",
-  ASSIGN_ROLE: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  REMOVE_ROLE: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  UPDATE_USER: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  PROCESS_DELIVERY_QUEUE:
-    "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-  RETRY_DELIVERY: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+const actionTones: Record<string, AdminTone> = {
+  CREATE: "success",
+  UPDATE: "info",
+  DELETE: "danger",
+  CREATE_COUPON: "success",
+  UPDATE_COUPON: "info",
+  DELETE_COUPON: "danger",
+  ASSIGN_ROLE: "accent",
+  REMOVE_ROLE: "accent",
+  UPDATE_USER: "info",
+  PROCESS_DELIVERY_QUEUE: "info",
+  RETRY_DELIVERY: "info",
 };
 
 function getActionType(action: string): string {
@@ -43,6 +45,8 @@ function getActionType(action: string): string {
 }
 
 export default function AdminAuditPage() {
+  const { addToast } = useToast();
+  const { formatDate } = useAdminPreferences();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -63,17 +67,18 @@ export default function AdminAuditPage() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: "20",
-        ...(userEmail && { userId: userEmail }),
+        ...(userEmail && { userEmail }),
         ...(actionFilter && { action: actionFilter }),
+        ...(dateFrom && { dateFrom }),
+        ...(dateTo && { dateTo }),
       });
       const res = await fetch(`/api/admin/audit?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setLogs(data.data);
-        setTotal(data.total);
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to load audit logs");
+      setLogs(data.data);
+      setTotal(data.total);
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to load audit logs" });
     } finally {
       setLoading(false);
     }
@@ -81,24 +86,16 @@ export default function AdminAuditPage() {
 
   async function exportLogs() {
     try {
-      const csv = [
-        ["Timestamp", "User Email", "Action", "Target", "Target ID", "IP Address"].join(
-          ","
-        ),
-        ...logs.map((log) =>
-          [
-            new Date(log.createdAt).toISOString(),
-            log.userEmail,
-            log.action,
-            log.target,
-            log.targetId || "-",
-            log.ipAddress || "-",
-          ].join(",")
-        ),
-      ].join("\n");
-
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = window.URL.createObjectURL(blob);
+      const params = new URLSearchParams({
+        format: "csv",
+        ...(userEmail && { userEmail }),
+        ...(actionFilter && { action: actionFilter }),
+        ...(dateFrom && { dateFrom }),
+        ...(dateTo && { dateTo }),
+      });
+      const response = await fetch(`/api/admin/audit?${params}`);
+      if (!response.ok) throw new Error("Unable to export audit logs");
+      const url = window.URL.createObjectURL(await response.blob());
       const a = document.createElement("a");
       a.href = url;
       a.download = `audit-logs-${new Date().toISOString().split("T")[0]}.csv`;
@@ -106,8 +103,9 @@ export default function AdminAuditPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      addToast({ type: "success", message: "Audit log export downloaded" });
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to export audit logs" });
     }
   }
 
@@ -234,21 +232,18 @@ export default function AdminAuditPage() {
                 <tbody className="divide-y divide-gray-800/50">
                   {logs.map((log) => {
                     const actionType = getActionType(log.action);
-                    const colorClass =
-                      actionColors[actionType] || actionColors.CREATE;
+                    const tone = actionTones[actionType] || "neutral";
                     return (
                       <React.Fragment key={log.id}>
                         <tr className="hover:bg-gray-800/20 transition-colors">
                           <td className="px-6 py-4 text-sm text-gray-400">
-                            {new Date(log.createdAt).toLocaleString()}
+                            {formatDate(log.createdAt, { dateStyle: "medium", timeStyle: "short" })}
                           </td>
                           <td className="px-6 py-4 text-sm text-white">
                             {log.userEmail}
                           </td>
                           <td className="px-6 py-4">
-                            <Badge className={`border ${colorClass}`}>
-                              {log.action}
-                            </Badge>
+                            <AdminBadge tone={tone} dot>{log.action}</AdminBadge>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-400">
                             {log.target}
@@ -260,7 +255,7 @@ export default function AdminAuditPage() {
                             {log.ipAddress || "-"}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            {Object.keys(log.details).length > 0 && (
+                            {Object.keys(log.details || {}).length > 0 && (
                               <button
                                 onClick={() =>
                                   setExpandedId(expandedId === log.id ? null : log.id)
@@ -284,7 +279,7 @@ export default function AdminAuditPage() {
                                   Details:
                                 </p>
                                 <pre className="font-mono text-xs text-gray-300 bg-gray-900/50 p-3 rounded overflow-auto max-h-96">
-                                  {JSON.stringify(log.details, null, 2)}
+                                  {JSON.stringify(log.details || {}, null, 2)}
                                 </pre>
                               </div>
                             </td>
@@ -331,5 +326,3 @@ export default function AdminAuditPage() {
     </div>
   );
 }
-
-import React from "react";

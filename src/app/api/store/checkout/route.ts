@@ -4,9 +4,13 @@ import { authOptions } from "@/lib/auth";
 import { OrderService } from "@/lib/services/order.service";
 import { getPaymentProvider } from "@/lib/payment/provider";
 import { prisma } from "@/lib/prisma";
+import { isCommerceMaintenanceMode } from "@/lib/store-settings";
 
 /** POST /api/store/checkout — Create order and initiate payment */
 export async function POST(request: NextRequest) {
+  if (await isCommerceMaintenanceMode()) {
+    return NextResponse.json({ error: "Shop is under maintenance" }, { status: 503 });
+  }
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: "กรุณาเข้าสู่ระบบก่อนชำระเงิน" }, { status: 401 });
@@ -40,25 +44,14 @@ export async function POST(request: NextRequest) {
     const payment = await provider.createPayment(
       order.id,
       totalInSatang,
-      process.env.DEFAULT_CURRENCY || "THB",
+      "THB",
       {
         orderNumber: order.orderNumber,
         userId: session.user.id,
         playerName,
+        paymentAttempt: "1",
       }
     );
-
-    // Store provider QR data in rawResponse so /api/store/payment/qr can serve it:
-    //   omise      → qrDownloadUri (authenticated Omise CDN URL)
-    //   xendit     → qrString      (raw EMV payload)
-    //   gbprimepay → qrImage       (base64 PNG)
-    const rawResponse = payment.metadata?.qrDownloadUri
-      ? { qrDownloadUri: payment.metadata.qrDownloadUri, chargeId: payment.metadata.chargeId, sourceId: payment.metadata.sourceId }
-      : payment.metadata?.qrString
-        ? { qrString: payment.metadata.qrString, xenditQrId: payment.metadata.xenditQrId }
-        : payment.metadata?.qrImage
-          ? { qrImage: payment.metadata.qrImage, gbpReferenceNo: payment.metadata.gbpReferenceNo }
-          : undefined;
 
     await prisma.paymentTransaction.create({
       data: {
@@ -66,10 +59,9 @@ export async function POST(request: NextRequest) {
         provider: provider.name,
         providerTransactionId: payment.id,
         amount: order.total,
-        currency: process.env.DEFAULT_CURRENCY || "THB",
+        currency: "THB",
         status: "PENDING",
         checkoutUrl: payment.checkoutUrl,
-        rawResponse,
       },
     });
 

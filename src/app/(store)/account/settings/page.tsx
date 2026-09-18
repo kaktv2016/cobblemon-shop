@@ -1,210 +1,64 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+
+type Notice = { type: "success" | "error"; text: string } | null;
 
 export default function SettingsPage() {
-  const [formData, setFormData] = useState({
-    displayName: 'Trainer Alex',
-    email: 'trainer@example.com',
-    avatarUrl: '',
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-  const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [profile, setProfile] = useState({ displayName: "", email: "", avatarUrl: "" });
+  const [password, setPassword] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<"profile" | "password" | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
+  useEffect(() => {
+    fetch("/api/account/profile", { cache: "no-store" }).then(async (response) => {
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Unable to load profile");
+      setProfile({ displayName: body.displayName || "", email: body.email, avatarUrl: body.avatarUrl || "" });
+    }).catch((error) => setNotice({ type: "error", text: error.message })).finally(() => setLoading(false));
+  }, []);
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-
+  async function saveProfile(event: React.FormEvent) {
+    event.preventDefault(); setSaving("profile"); setNotice(null);
     try {
-      const response = await fetch('/api/account/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          displayName: formData.displayName,
-          avatarUrl: formData.avatarUrl,
-        }),
-      });
+      const response = await fetch("/api/account/profile", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ displayName: profile.displayName, avatarUrl: profile.avatarUrl }) });
+      const body = await response.json(); if (!response.ok) throw new Error(body.error || "Unable to update profile");
+      setProfile((current) => ({ ...current, displayName: body.displayName || "", avatarUrl: body.avatarUrl || "" }));
+      setNotice({ type: "success", text: "Profile updated successfully" });
+    } catch (error) { setNotice({ type: "error", text: error instanceof Error ? error.message : "Unable to update profile" }); }
+    finally { setSaving(null); }
+  }
 
-      if (response.ok) {
-        setMessage('Profile updated successfully');
-      }
-    } catch (error) {
-      setMessage('Failed to update profile');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.newPassword !== formData.confirmPassword) {
-      setMessage('Passwords do not match');
-      return;
-    }
-
-    setIsSaving(true);
-
+  async function changePassword(event: React.FormEvent) {
+    event.preventDefault(); setNotice(null);
+    if (password.newPassword !== password.confirmPassword) { setNotice({ type: "error", text: "Passwords do not match" }); return; }
+    setSaving("password");
     try {
-      const response = await fetch('/api/account/password', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentPassword: formData.currentPassword,
-          newPassword: formData.newPassword,
-        }),
-      });
+      const response = await fetch("/api/account/password", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currentPassword: password.currentPassword, newPassword: password.newPassword }) });
+      const body = await response.json(); if (!response.ok) throw new Error(body.error || "Unable to change password");
+      setPassword({ currentPassword: "", newPassword: "", confirmPassword: "" }); setNotice({ type: "success", text: "AuthMe password changed successfully" });
+    } catch (error) { setNotice({ type: "error", text: error instanceof Error ? error.message : "Unable to change password" }); }
+    finally { setSaving(null); }
+  }
 
-      if (response.ok) {
-        setMessage('Password changed successfully');
-        setFormData({
-          ...formData,
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: '',
-        });
-      }
-    } catch (error) {
-      setMessage('Failed to change password');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
-      <section className="border-b border-indigo-500/20 bg-gradient-to-r from-slate-900 to-slate-850 px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <h1 className="text-4xl font-bold text-slate-100">Account Settings</h1>
-        </div>
-      </section>
-
-      <div className="px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl space-y-8">
-          {/* Success Message */}
-          {message && (
-            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-4">
-              <p className="text-sm text-emerald-300">{message}</p>
-            </div>
-          )}
-
-          {/* Profile Settings */}
-          <Card className="border-indigo-500/20 bg-gradient-to-br from-slate-800 to-slate-900 p-6 space-y-6">
-            <h2 className="text-2xl font-bold text-slate-100">Profile Information</h2>
-
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-slate-300">Display Name</label>
-                <Input
-                  type="text"
-                  name="displayName"
-                  value={formData.displayName}
-                  onChange={handleChange}
-                  className="border-indigo-500/20 bg-slate-700 text-slate-100 placeholder:text-slate-500"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-slate-300">Email</label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  disabled
-                  className="border-indigo-500/20 bg-slate-700 text-slate-400 cursor-not-allowed"
-                />
-                <p className="text-xs text-slate-400">Email cannot be changed</p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-slate-300">Avatar URL</label>
-                <Input
-                  type="url"
-                  name="avatarUrl"
-                  value={formData.avatarUrl}
-                  onChange={handleChange}
-                  placeholder="https://example.com/avatar.png"
-                  className="border-indigo-500/20 bg-slate-700 text-slate-100 placeholder:text-slate-500"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={isSaving}
-                className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold"
-              >
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </form>
-          </Card>
-
-          {/* Change Password */}
-          <Card className="border-indigo-500/20 bg-gradient-to-br from-slate-800 to-slate-900 p-6 space-y-6">
-            <h2 className="text-2xl font-bold text-slate-100">Change Password</h2>
-
-            <form onSubmit={handleChangePassword} className="space-y-4">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-slate-300">
-                  Current Password
-                </label>
-                <Input
-                  type="password"
-                  name="currentPassword"
-                  value={formData.currentPassword}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className="border-indigo-500/20 bg-slate-700 text-slate-100 placeholder:text-slate-500"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-slate-300">New Password</label>
-                <Input
-                  type="password"
-                  name="newPassword"
-                  value={formData.newPassword}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className="border-indigo-500/20 bg-slate-700 text-slate-100 placeholder:text-slate-500"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-slate-300">
-                  Confirm Password
-                </label>
-                <Input
-                  type="password"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className="border-indigo-500/20 bg-slate-700 text-slate-100 placeholder:text-slate-500"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={isSaving}
-                className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold"
-              >
-                {isSaving ? 'Updating...' : 'Change Password'}
-              </Button>
-            </form>
-          </Card>
-        </div>
-      </div>
-    </main>
-  );
+  return <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 px-4 py-16"><div className="mx-auto max-w-2xl space-y-8"><div><h1 className="text-4xl font-bold text-slate-100">Account Settings</h1><p className="mt-2 text-slate-400">Profile changes are stored in the shop. Password changes also update your Minecraft AuthMe login.</p></div>
+    {notice && <div className={`rounded-lg border p-4 ${notice.type === "success" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-red-500/30 bg-red-500/10 text-red-300"}`}>{notice.text}</div>}
+    {loading ? <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-indigo-300" /></div> : <>
+      <Card className="space-y-5 border-indigo-500/20 bg-slate-900/70 p-6"><h2 className="text-2xl font-bold text-slate-100">Profile Information</h2><form onSubmit={saveProfile} className="space-y-4">
+        <label className="block text-sm text-slate-300">Display Name<Input className="mt-2 border-slate-700 bg-slate-800" value={profile.displayName} onChange={(event) => setProfile({ ...profile, displayName: event.target.value })} /></label>
+        <label className="block text-sm text-slate-300">Email<Input className="mt-2 border-slate-700 bg-slate-800" value={profile.email} disabled /></label>
+        <label className="block text-sm text-slate-300">Avatar URL<Input className="mt-2 border-slate-700 bg-slate-800" value={profile.avatarUrl} onChange={(event) => setProfile({ ...profile, avatarUrl: event.target.value })} placeholder="https://example.com/avatar.png" /></label>
+        <Button disabled={saving !== null}>{saving === "profile" ? "Saving…" : "Save Profile"}</Button>
+      </form></Card>
+      <Card className="space-y-5 border-indigo-500/20 bg-slate-900/70 p-6"><h2 className="text-2xl font-bold text-slate-100">Change AuthMe Password</h2><form onSubmit={changePassword} className="space-y-4">
+        {(["currentPassword", "newPassword", "confirmPassword"] as const).map((key) => <label key={key} className="block text-sm text-slate-300">{{ currentPassword: "Current Password", newPassword: "New Password", confirmPassword: "Confirm New Password" }[key]}<Input type="password" required minLength={key === "currentPassword" ? 1 : 8} className="mt-2 border-slate-700 bg-slate-800" value={password[key]} onChange={(event) => setPassword({ ...password, [key]: event.target.value })} /></label>)}
+        <Button disabled={saving !== null}>{saving === "password" ? "Updating…" : "Change Password"}</Button>
+      </form></Card>
+    </>}
+  </div></main>;
 }

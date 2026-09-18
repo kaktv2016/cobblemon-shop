@@ -1,6 +1,8 @@
 import { Anuphan } from "next/font/google";
 import { Providers } from "@/components/shared/providers";
 import "./globals.css";
+import type { Metadata } from "next";
+import { getStoreSettings } from "@/lib/store-settings";
 
 const bodyFont = Anuphan({
   subsets: ["thai", "latin"],
@@ -16,14 +18,16 @@ const displayFont = Anuphan({
   display: "swap",
 });
 
-export const metadata = {
-  title: {
-    default: "Cobblemon Divided - พอร์ทัลเซิร์ฟเวอร์ Cobblemon",
-    template: "%s | Cobblemon Divided",
-  },
-  description:
-    "พอร์ทัลของ Cobblemon Divided ที่รวมโลกของเซิร์ฟเวอร์ ข่าวสาร และคลังปลดล็อกแบบพรีเมียมไว้ในบรรยากาศที่เข้ม สุขุม และเป็นเอกลักษณ์",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+  return {
+    title: {
+      default: `${settings.shopName} - พอร์ทัลเซิร์ฟเวอร์ Cobblemon`,
+      template: `%s | ${settings.shopName}`,
+    },
+    description: settings.shopDescription,
+  };
+}
 
 export default function RootLayout({
   children,

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
 
 export function WikiArticleActions({
   articleId,
@@ -11,9 +13,11 @@ export function WikiArticleActions({
   articleId: string;
 }) {
   const router = useRouter();
+  const { addToast } = useToast();
+  const { locale } = useAdminPreferences();
 
   async function handleDelete() {
-    if (!confirm("Delete this wiki article?")) {
+    if (!confirm(locale === "th" ? "ลบบทความวิกินี้หรือไม่?" : "Delete this wiki article?")) {
       return;
     }
 
@@ -22,13 +26,13 @@ export function WikiArticleActions({
         method: "DELETE",
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to delete article");
-      }
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to delete article");
 
       router.refresh();
+      addToast({ type: "success", message: locale === "th" ? "ลบบทความวิกิแล้ว" : "Wiki article deleted" });
     } catch (error) {
-      console.error("Wiki article delete error:", error);
+      addToast({ type: "error", message: error instanceof Error ? error.message : "Failed to delete article" });
     }
   }
 

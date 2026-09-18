@@ -66,7 +66,6 @@ export const createDeliveryTemplateSchema = z.object({
         message: `Template contains disallowed placeholders. Allowed placeholders: {${ALLOWED_PLACEHOLDERS.join("}, {")}}`,
       }
     ),
-  adapterType: z.enum(["BUKKIT", "SPIGOT", "PAPER", "FABRIC", "FORGE"]),
   isActive: z.boolean().default(true),
 });
 
@@ -97,9 +96,6 @@ export const updateDeliveryTemplateSchema = z.object({
         message: `Template contains disallowed placeholders. Allowed placeholders: {${ALLOWED_PLACEHOLDERS.join("}, {")}}`,
       }
     )
-    .optional(),
-  adapterType: z
-    .enum(["BUKKIT", "SPIGOT", "PAPER", "FABRIC", "FORGE"])
     .optional(),
   isActive: z.boolean().optional(),
 });

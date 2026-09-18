@@ -2,6 +2,8 @@ import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
 export const PUBLIC_ROUTE_REVALIDATE = 60;
+export const PUBLIC_NEWS_TAG = "public-news-announcements";
+export const PUBLIC_CATALOG_TAG = "public-store-catalog";
 
 const getPublicHomeDataCached = unstable_cache(
   async () => {
@@ -30,7 +32,7 @@ const getPublicHomeDataCached = unstable_cache(
     return { featured, categories };
   },
   ["public-home-data"],
-  { revalidate: PUBLIC_ROUTE_REVALIDATE }
+  { revalidate: PUBLIC_ROUTE_REVALIDATE, tags: [PUBLIC_CATALOG_TAG] }
 );
 
 const getPublicStoreOverviewDataCached = unstable_cache(
@@ -108,17 +110,25 @@ const getPublicStoreOverviewDataCached = unstable_cache(
     };
   },
   ["public-store-overview-data"],
-  { revalidate: PUBLIC_ROUTE_REVALIDATE }
+  { revalidate: PUBLIC_ROUTE_REVALIDATE, tags: [PUBLIC_CATALOG_TAG] }
 );
 
 const getPublicNewsAnnouncementsCached = unstable_cache(
-  async () =>
-    prisma.announcement.findMany({
-      where: { isActive: true },
+  async () => {
+    const now = new Date();
+    return prisma.announcement.findMany({
+      where: {
+        isActive: true,
+        AND: [
+          { OR: [{ startDate: null }, { startDate: { lte: now } }] },
+          { OR: [{ endDate: null }, { endDate: { gte: now } }] },
+        ],
+      },
       orderBy: { createdAt: "desc" },
-    }),
+    });
+  },
   ["public-news-announcements"],
-  { revalidate: PUBLIC_ROUTE_REVALIDATE }
+  { revalidate: PUBLIC_ROUTE_REVALIDATE, tags: [PUBLIC_NEWS_TAG] }
 );
 
 const getPublicCategoryPageDataCached = unstable_cache(
@@ -166,7 +176,7 @@ const getPublicCategoryPageDataCached = unstable_cache(
     return { category, products };
   },
   ["public-category-page-data"],
-  { revalidate: PUBLIC_ROUTE_REVALIDATE }
+  { revalidate: PUBLIC_ROUTE_REVALIDATE, tags: [PUBLIC_CATALOG_TAG] }
 );
 
 const getPublicProductPageDataCached = unstable_cache(
@@ -254,7 +264,7 @@ const getPublicProductPageDataCached = unstable_cache(
     return { product, relatedProducts };
   },
   ["public-product-page-data"],
-  { revalidate: PUBLIC_ROUTE_REVALIDATE }
+  { revalidate: PUBLIC_ROUTE_REVALIDATE, tags: [PUBLIC_CATALOG_TAG] }
 );
 
 export async function getPublicHomeData() {

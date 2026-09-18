@@ -191,7 +191,7 @@ export default function OrdersPage() {
                         <div className="flex gap-2">
                           {/* Pay button — shown only when pending */}
                           {isPending && (
-                            <Link href={`/checkout/promptpay?order=${order.id}`}>
+                            <Link href={`/account/orders/${order.id}`}>
                               <Button
                                 size="sm"
                                 className="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-slate-900 font-bold gap-1.5 shadow-md shadow-yellow-500/20"

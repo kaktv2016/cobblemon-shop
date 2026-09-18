@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { CategoryFormSchema } from "@/lib/admin/validation";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { PUBLIC_CATALOG_TAG } from "@/lib/public-store-cache";
 
 /** GET /api/admin/categories */
 export async function GET(request: NextRequest) {
@@ -29,18 +32,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const body = CategoryFormSchema.parse(await request.json());
     const category = await prisma.category.create({
       data: {
         name: body.name,
         slug: body.slug,
         description: body.description || null,
         imageUrl: body.imageUrl || null,
-        sortOrder: body.sortOrder || 0,
+        sortOrder: body.sortOrder ?? 0,
         isActive: body.isActive ?? true,
         parentId: body.parentId || null,
       },
     });
+
+    revalidateTag(PUBLIC_CATALOG_TAG);
+    revalidatePath("/");
+    revalidatePath("/store");
 
     await prisma.auditLog.create({
       data: {

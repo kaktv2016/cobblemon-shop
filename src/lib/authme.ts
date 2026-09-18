@@ -147,3 +147,14 @@ export async function updateAuthmeLastLogin(
     username.toLowerCase()
   );
 }
+
+/** Update the AuthMe-managed password after the current password is verified. */
+export async function updateAuthmePassword(username: string, newPassword: string): Promise<void> {
+  const hashedPassword = authmeHash(newPassword);
+  const updated = await authmeDb.$executeRawUnsafe(
+    "UPDATE authme SET password = ? WHERE LOWER(username) = LOWER(?)",
+    hashedPassword,
+    username.toLowerCase()
+  );
+  if (updated !== 1) throw new Error("AuthMe account was not found");
+}

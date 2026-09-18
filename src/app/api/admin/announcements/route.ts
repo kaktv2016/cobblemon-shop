@@ -2,17 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-
-const createAnnouncementSchema = z.object({
-  title: z.string().min(1).max(256),
-  content: z.string().min(1).max(5000),
-  type: z.enum(["INFO", "WARNING", "SALE", "EVENT", "MAINTENANCE"]),
-  isActive: z.boolean().default(true),
-  startsAt: z.string().datetime().optional().nullable(),
-  endsAt: z.string().datetime().optional().nullable(),
-  sortOrder: z.number().int().default(0),
-});
+import { revalidatePath, revalidateTag } from "next/cache";
+import { PUBLIC_NEWS_TAG } from "@/lib/public-store-cache";
+import { createAnnouncementSchema } from "@/lib/validators/announcement";
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -54,6 +46,9 @@ export async function POST(request: NextRequest) {
         details: { title: announcement.title },
       },
     });
+
+    revalidateTag(PUBLIC_NEWS_TAG);
+    revalidatePath("/news");
 
     return NextResponse.json(announcement, { status: 201 });
   } catch (error: any) {

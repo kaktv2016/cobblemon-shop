@@ -5,18 +5,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
+import type { AdminTranslationKey } from "@/lib/admin-i18n";
 
-const navItems = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: "BarChart3" },
-  { href: "/admin/products", label: "Products", icon: "Package" },
-  { href: "/admin/categories", label: "Categories", icon: "Layers" },
-  { href: "/admin/orders", label: "Orders", icon: "ShoppingCart" },
-  { href: "/admin/users", label: "Users", icon: "Users" },
-  { href: "/admin/coupons", label: "Coupons", icon: "Tag" },
-  { href: "/admin/delivery", label: "Delivery", icon: "Truck" },
-  { href: "/admin/content", label: "Content", icon: "FileText" },
-  { href: "/admin/audit", label: "Audit Log", icon: "Shield" },
-  { href: "/admin/settings", label: "Settings", icon: "Settings" },
+const navItems: Array<{ href: string; labelKey: AdminTranslationKey; icon: string }> = [
+  { href: "/admin/dashboard", labelKey: "nav.dashboard", icon: "BarChart3" },
+  { href: "/admin/products", labelKey: "nav.products", icon: "Package" },
+  { href: "/admin/categories", labelKey: "nav.categories", icon: "Layers" },
+  { href: "/admin/orders", labelKey: "nav.orders", icon: "ShoppingCart" },
+  { href: "/admin/users", labelKey: "nav.users", icon: "Users" },
+  { href: "/admin/coupons", labelKey: "nav.coupons", icon: "Tag" },
+  { href: "/admin/delivery", labelKey: "nav.delivery", icon: "Truck" },
+  { href: "/admin/content", labelKey: "nav.content", icon: "FileText" },
+  { href: "/admin/audit", labelKey: "nav.audit", icon: "Shield" },
+  { href: "/admin/settings", labelKey: "nav.settings", icon: "Settings" },
 ];
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -35,18 +37,21 @@ const iconMap: Record<string, React.ReactNode> = {
 export function AdminSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const { t } = useAdminPreferences();
 
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 h-screen border-r border-slate-200 bg-gradient-to-b from-slate-900 to-slate-950 pt-16 transition-all duration-300",
+        "fixed left-0 top-0 z-40 h-screen border-r border-[var(--admin-border)] bg-[var(--admin-sidebar)] pt-16 transition-all duration-300",
         collapsed ? "w-20" : "w-64"
       )}
     >
       {/* Collapse Toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute right-0 top-4 translate-x-1/2 rounded-full border border-slate-700 bg-slate-800 p-1.5 hover:bg-slate-700"
+        className="absolute right-0 top-4 translate-x-1/2 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-elevated)] p-1.5 hover:bg-[var(--admin-hover)]"
+        aria-label={collapsed ? t("sidebar.expand") : t("sidebar.collapse")}
+        title={collapsed ? t("sidebar.expand") : t("sidebar.collapse")}
       >
         {collapsed ? (
           <ChevronRight className="h-4 w-4 text-amber-500" />
@@ -67,14 +72,14 @@ export function AdminSidebar() {
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-indigo-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  : "text-[var(--admin-text-muted)] hover:bg-[var(--admin-hover)] hover:text-[var(--admin-text)]"
               )}
-              title={collapsed ? item.label : undefined}
+              title={collapsed ? t(item.labelKey) : undefined}
             >
               <div className="flex-shrink-0">
                 {iconMap[item.icon] || <div className="h-5 w-5" />}
               </div>
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && <span>{t(item.labelKey)}</span>}
             </Link>
           );
         })}

@@ -6,7 +6,9 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
 } from "recharts";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminBadge } from "@/components/admin/admin-badge";
 import {
   TrendingUp, TrendingDown, ShoppingCart, BarChart3,
   Trophy, Loader2, ArrowUpRight, ArrowDownRight, Minus,
@@ -28,8 +30,8 @@ interface MonthData {
 }
 
 interface ComparisonData {
-  currentMonth: { label: string; revenue: number; fee: number; netRevenue: number; orders: number };
-  previousMonth: { label: string; revenue: number; fee: number; netRevenue: number; orders: number } | null;
+  currentMonth: { key: string; label: string; revenue: number; fee: number; netRevenue: number; orders: number };
+  previousMonth: { key: string; label: string; revenue: number; fee: number; netRevenue: number; orders: number } | null;
   revenueChange: number;
   netRevenueChange: number;
   ordersChange: number;
@@ -42,7 +44,7 @@ interface SummaryData {
   totalOrders: number;
   avgMonthlyRevenue: number;
   avgMonthlyNetRevenue: number;
-  bestMonth: { label: string; revenue: number; fee: number; netRevenue: number; orders: number };
+  bestMonth: { key: string; label: string; revenue: number; fee: number; netRevenue: number; orders: number };
 }
 
 interface MonthlySalesData {
@@ -55,10 +57,6 @@ interface MonthlySalesData {
 type ChartView = "area" | "bar";
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */
-
-function formatPrice(price: number): string {
-  return `฿${price.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 function ChangeIndicator({ value }: { value: number }) {
   if (value > 0)
@@ -81,6 +79,7 @@ function ChangeIndicator({ value }: { value: number }) {
 }
 
 function CustomTooltip({ active, payload, label }: any) {
+  const { formatCurrency } = useAdminPreferences();
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border border-white/10 bg-slate-900/95 px-4 py-3 shadow-2xl backdrop-blur-md">
@@ -90,7 +89,7 @@ function CustomTooltip({ active, payload, label }: any) {
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
           <span className="text-xs text-slate-300">{entry.name}:</span>
           <span className="text-xs font-semibold text-white">
-            {entry.name === "Orders" ? entry.value : formatPrice(entry.value)}
+            {entry.name === "Orders" ? entry.value : formatCurrency(entry.value)}
           </span>
         </div>
       ))}
@@ -101,6 +100,8 @@ function CustomTooltip({ active, payload, label }: any) {
 /* ─── Main Component ─────────────────────────────────────────────────── */
 
 export default function MonthlySalesChart() {
+  const { formatCurrency, formatNumber, locale, theme } = useAdminPreferences();
+  const formatPrice = formatCurrency;
   const [data, setData] = useState<MonthlySalesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -136,48 +137,67 @@ export default function MonthlySalesChart() {
 
   const { months, comparison, summary, feeRate } = data;
   const feePercent = (feeRate * 100).toFixed(1);
+  const monthLabel = (key: string, long = false) => {
+    const [year, month] = key.split("-").map(Number);
+    return new Intl.DateTimeFormat(locale === "th" ? "th-TH" : "en-US", {
+      month: long ? "long" : "short", year: long ? "numeric" : "2-digit", timeZone: "UTC",
+    }).format(new Date(Date.UTC(year, month - 1, 1)));
+  };
+  const chartMonths = months.map((month) => ({ ...month, label: monthLabel(month.key) }));
+  const labels = locale === "th" ? {
+    gross: "ยอดขายรวม", fee: "ค่าธรรมเนียมโดยประมาณ", net: "รายได้สุทธิ", orders: "ออเดอร์",
+    average: "เฉลี่ยสุทธิ / เดือน", best: "เดือนที่ดีที่สุด", versus: "เทียบเดือนก่อน",
+    deducted: "หักออกจากยอดขาย", lastYear: "ย้อนหลัง 12 เดือน",
+  } : {
+    gross: "Gross revenue", fee: "Estimated payment fee", net: "Net revenue", orders: "Orders",
+    average: "Average net / month", best: "Best month", versus: "vs previous month",
+    deducted: "Deducted from revenue", lastYear: "Last 12 months",
+  };
+  const chartColors = theme === "light"
+    ? { grid: "#dbe3ee", tick: "#5d6b82", revenue: "#4f46e5", net: "#047857", orders: "#1d4ed8", active: "#ffffff" }
+    : { grid: "#1e293b", tick: "#94a3b8", revenue: "#818cf8", net: "#34d399", orders: "#67e8f9", active: "#ffffff" };
 
   /* ── Stat cards ────────────────────────────────────────────────────── */
   const statCards = [
     {
-      label: `ยอดขายรวม (${comparison.currentMonth.label})`,
+      label: `${labels.gross} (${monthLabel(comparison.currentMonth.key, true)})`,
       value: formatPrice(comparison.currentMonth.revenue),
-      sub: <><ChangeIndicator value={comparison.revenueChange} /><span className="text-xs text-gray-500 ml-1">vs เดือนก่อน</span></>,
+      sub: <><ChangeIndicator value={comparison.revenueChange} /><span className="text-xs text-gray-500 ml-1">{labels.versus}</span></>,
       icon: <TrendingUp className="h-4 w-4 text-indigo-400" />,
       iconBg: "border-indigo-500/20 bg-indigo-500/10",
     },
     {
-      label: `ค่า Fee Omise (${feePercent}%)`,
+      label: `${labels.fee} (${feePercent}%)`,
       value: formatPrice(comparison.currentMonth.fee),
-      sub: <span className="text-xs text-gray-500">หักออกจากยอดขาย</span>,
+      sub: <span className="text-xs text-gray-500">{labels.deducted}</span>,
       icon: <BadgePercent className="h-4 w-4 text-rose-400" />,
       iconBg: "border-rose-500/20 bg-rose-500/10",
     },
     {
-      label: `รายได้สุทธิ (${comparison.currentMonth.label})`,
+      label: `${labels.net} (${monthLabel(comparison.currentMonth.key, true)})`,
       value: formatPrice(comparison.currentMonth.netRevenue),
-      sub: <><ChangeIndicator value={comparison.netRevenueChange} /><span className="text-xs text-gray-500 ml-1">vs เดือนก่อน</span></>,
+      sub: <><ChangeIndicator value={comparison.netRevenueChange} /><span className="text-xs text-gray-500 ml-1">{labels.versus}</span></>,
       icon: <Wallet className="h-4 w-4 text-emerald-400" />,
       iconBg: "border-emerald-500/20 bg-emerald-500/10",
     },
     {
-      label: `ออเดอร์ (${comparison.currentMonth.label})`,
-      value: comparison.currentMonth.orders.toLocaleString(),
-      sub: <><ChangeIndicator value={comparison.ordersChange} /><span className="text-xs text-gray-500 ml-1">vs เดือนก่อน</span></>,
+      label: `${labels.orders} (${monthLabel(comparison.currentMonth.key, true)})`,
+      value: formatNumber(comparison.currentMonth.orders),
+      sub: <><ChangeIndicator value={comparison.ordersChange} /><span className="text-xs text-gray-500 ml-1">{labels.versus}</span></>,
       icon: <ShoppingCart className="h-4 w-4 text-cyan-400" />,
       iconBg: "border-cyan-500/20 bg-cyan-500/10",
     },
     {
-      label: "เฉลี่ยสุทธิ / เดือน",
+      label: labels.average,
       value: formatPrice(summary.avgMonthlyNetRevenue),
-      sub: <span className="text-xs text-gray-500">ย้อนหลัง 12 เดือน</span>,
+      sub: <span className="text-xs text-gray-500">{labels.lastYear}</span>,
       icon: <BarChart3 className="h-4 w-4 text-purple-400" />,
       iconBg: "border-purple-500/20 bg-purple-500/10",
     },
     {
-      label: "เดือนที่ดีที่สุด",
+      label: labels.best,
       value: formatPrice(summary.bestMonth.netRevenue),
-      sub: <span className="text-xs text-gray-500">{summary.bestMonth.label} · {summary.bestMonth.orders} ออเดอร์</span>,
+      sub: <span className="text-xs text-gray-500">{monthLabel(summary.bestMonth.key, true)} · {summary.bestMonth.orders} {labels.orders}</span>,
       icon: <Trophy className="h-4 w-4 text-amber-400" />,
       iconBg: "border-amber-500/20 bg-amber-500/10",
     },
@@ -210,9 +230,9 @@ export default function MonthlySalesChart() {
       <Card className="border-gray-800/50 bg-gray-900/50">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <div>
-            <CardTitle className="text-lg text-white">ยอดขายรายเดือน</CardTitle>
+            <CardTitle className="text-lg text-white">{locale === "th" ? "ยอดขายรายเดือน" : "Monthly sales"}</CardTitle>
             <p className="mt-0.5 text-xs text-gray-500">
-              เส้นสีม่วง = ยอดรวม · สีเขียว = สุทธิหลังหัก Fee · แท่งสีฟ้า = ออเดอร์
+              {locale === "th" ? "สีม่วง = ยอดรวม · สีเขียว = สุทธิ · สีฟ้า = ออเดอร์" : "Indigo = gross · green = net · blue = orders"}
             </p>
           </div>
           <div className="flex gap-1 rounded-lg border border-gray-700/50 bg-gray-800/50 p-0.5">
@@ -233,56 +253,53 @@ export default function MonthlySalesChart() {
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               {chartView === "area" ? (
-                <AreaChart data={months} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <AreaChart data={chartMonths} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#818cf8" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+                      <stop offset="5%" stopColor={chartColors.revenue} stopOpacity={0.25} />
+                      <stop offset="95%" stopColor={chartColors.revenue} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gNet" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#34d399" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                      <stop offset="5%" stopColor={chartColors.net} stopOpacity={0.25} />
+                      <stop offset="95%" stopColor={chartColors.net} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gOrders" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#67e8f9" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#67e8f9" stopOpacity={0} />
+                      <stop offset="5%" stopColor={chartColors.orders} stopOpacity={0.2} />
+                      <stop offset="95%" stopColor={chartColors.orders} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="label" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis yAxisId="revenue" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false}
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                  <XAxis dataKey="label" stroke={chartColors.tick} fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis yAxisId="revenue" stroke={chartColors.tick} fontSize={11} tickLine={false} axisLine={false}
                     tickFormatter={(v) => v >= 1000 ? `฿${(v / 1000).toFixed(0)}k` : `฿${v}`} />
-                  <YAxis yAxisId="orders" orientation="right" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis yAxisId="orders" orientation="right" stroke={chartColors.tick} fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }} />
-                  <Area yAxisId="revenue" type="monotone" dataKey="revenue" name="ยอดรวม (Gross)"
-                    stroke="#818cf8" strokeWidth={2} fill="url(#gRevenue)"
-                    dot={{ fill: "#818cf8", strokeWidth: 0, r: 3 }}
-                    activeDot={{ fill: "#818cf8", strokeWidth: 2, stroke: "#fff", r: 5 }} />
-                  <Area yAxisId="revenue" type="monotone" dataKey="netRevenue" name="สุทธิ (Net)"
-                    stroke="#34d399" strokeWidth={2.5} fill="url(#gNet)"
-                    dot={{ fill: "#34d399", strokeWidth: 0, r: 3 }}
-                    activeDot={{ fill: "#34d399", strokeWidth: 2, stroke: "#fff", r: 5 }} />
-                  <Area yAxisId="orders" type="monotone" dataKey="orders" name="Orders"
-                    stroke="#67e8f9" strokeWidth={1.5} fill="url(#gOrders)"
-                    dot={{ fill: "#67e8f9", strokeWidth: 0, r: 3 }}
-                    activeDot={{ fill: "#67e8f9", strokeWidth: 2, stroke: "#fff", r: 5 }} />
+                  <Legend wrapperStyle={{ fontSize: "12px", color: chartColors.tick }} />
+                  <Area yAxisId="revenue" type="monotone" dataKey="revenue" name={labels.gross}
+                    stroke={chartColors.revenue} strokeWidth={2} fill="url(#gRevenue)"
+                    dot={{ fill: chartColors.revenue, strokeWidth: 0, r: 3 }}
+                    activeDot={{ fill: chartColors.revenue, strokeWidth: 2, stroke: chartColors.active, r: 5 }} />
+                  <Area yAxisId="revenue" type="monotone" dataKey="netRevenue" name={labels.net}
+                    stroke={chartColors.net} strokeWidth={2.5} fill="url(#gNet)"
+                    dot={{ fill: chartColors.net, strokeWidth: 0, r: 3 }}
+                    activeDot={{ fill: chartColors.net, strokeWidth: 2, stroke: chartColors.active, r: 5 }} />
+                  <Area yAxisId="orders" type="monotone" dataKey="orders" name={labels.orders}
+                    stroke={chartColors.orders} strokeWidth={1.5} fill="url(#gOrders)"
+                    dot={{ fill: chartColors.orders, strokeWidth: 0, r: 3 }}
+                    activeDot={{ fill: chartColors.orders, strokeWidth: 2, stroke: chartColors.active, r: 5 }} />
                 </AreaChart>
               ) : (
-                <BarChart data={months} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="label" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis yAxisId="revenue" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false}
+                <BarChart data={chartMonths} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                  <XAxis dataKey="label" stroke={chartColors.tick} fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis yAxisId="revenue" stroke={chartColors.tick} fontSize={11} tickLine={false} axisLine={false}
                     tickFormatter={(v) => v >= 1000 ? `฿${(v / 1000).toFixed(0)}k` : `฿${v}`} />
-                  <YAxis yAxisId="orders" orientation="right" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis yAxisId="orders" orientation="right" stroke={chartColors.tick} fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }} />
-                  <Bar yAxisId="revenue" dataKey="revenue" name="ยอดรวม (Gross)"
-                    fill="#818cf8" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                  <Bar yAxisId="revenue" dataKey="netRevenue" name="สุทธิ (Net)"
-                    fill="#34d399" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                  <Bar yAxisId="orders" dataKey="orders" name="Orders"
-                    fill="#67e8f9" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                  <Legend wrapperStyle={{ fontSize: "12px", color: chartColors.tick }} />
+                  <Bar yAxisId="revenue" dataKey="revenue" name={labels.gross} fill={chartColors.revenue} radius={[4, 4, 0, 0]} maxBarSize={32} />
+                  <Bar yAxisId="revenue" dataKey="netRevenue" name={labels.net} fill={chartColors.net} radius={[4, 4, 0, 0]} maxBarSize={32} />
+                  <Bar yAxisId="orders" dataKey="orders" name={labels.orders} fill={chartColors.orders} radius={[4, 4, 0, 0]} maxBarSize={32} />
                 </BarChart>
               )}
             </ResponsiveContainer>
@@ -294,15 +311,15 @@ export default function MonthlySalesChart() {
       <Card className="border-gray-800/50 bg-gray-900/50">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <div>
-            <CardTitle className="text-lg text-white">ตารางรายเดือน</CardTitle>
+            <CardTitle className="text-lg text-white">{locale === "th" ? "ตารางรายเดือน" : "Monthly table"}</CardTitle>
             <p className="mt-0.5 text-xs text-gray-500">
-              Fee Omise {feePercent}% · รายได้สุทธิ = ยอดรวม − Fee
+              {labels.fee} {feePercent}% · {labels.net} = {labels.gross} − {locale === "th" ? "ค่าธรรมเนียม" : "fee"}
             </p>
           </div>
           <div className="text-right text-xs text-gray-500">
-            <div>รวม: {formatPrice(summary.totalRevenue)}</div>
+            <div>{locale === "th" ? "รวม" : "Total"}: {formatPrice(summary.totalRevenue)}</div>
             <div className="text-rose-400">Fee: −{formatPrice(summary.totalFee)}</div>
-            <div className="text-emerald-400 font-semibold">สุทธิ: {formatPrice(summary.totalNetRevenue)}</div>
+            <div className="text-emerald-400 font-semibold">{labels.net}: {formatPrice(summary.totalNetRevenue)}</div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -311,13 +328,13 @@ export default function MonthlySalesChart() {
               <thead>
                 <tr className="border-b border-gray-800/50">
                   {[
-                    ["เดือน", "left"],
-                    ["ยอดรวม", "right"],
+                    [locale === "th" ? "เดือน" : "Month", "left"],
+                    [labels.gross, "right"],
                     [`Fee (${feePercent}%)`, "right"],
-                    ["รายได้สุทธิ", "right"],
-                    ["ออเดอร์", "right"],
-                    ["เฉลี่ย/ออเดอร์", "right"],
-                    ["สัดส่วน", "left"],
+                    [labels.net, "right"],
+                    [labels.orders, "right"],
+                    [locale === "th" ? "เฉลี่ย/ออเดอร์" : "Average/order", "right"],
+                    [locale === "th" ? "สัดส่วน" : "Share", "left"],
                   ].map(([h, align]) => (
                     <th
                       key={h}
@@ -329,7 +346,7 @@ export default function MonthlySalesChart() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/30">
-                {[...months].reverse().map((month, idx) => {
+                {[...chartMonths].reverse().map((month, idx) => {
                   const avgPerOrder = month.orders > 0 ? month.revenue / month.orders : 0;
                   const revenueShare =
                     summary.totalRevenue > 0
@@ -345,11 +362,9 @@ export default function MonthlySalesChart() {
                       {/* Month */}
                       <td className="whitespace-nowrap px-5 py-3.5">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-white">{month.fullLabel}</span>
+                          <span className="text-sm font-medium text-white">{monthLabel(month.key, true)}</span>
                           {isCurrent && (
-                            <span className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
-                              ปัจจุบัน
-                            </span>
+                            <AdminBadge tone="accent">{locale === "th" ? "ปัจจุบัน" : "Current"}</AdminBadge>
                           )}
                         </div>
                       </td>
@@ -400,7 +415,7 @@ export default function MonthlySalesChart() {
               {/* Footer totals */}
               <tfoot>
                 <tr className="border-t-2 border-gray-700/50 bg-gray-800/30">
-                  <td className="px-5 py-3 text-sm font-bold text-white">รวม 12 เดือน</td>
+                  <td className="px-5 py-3 text-sm font-bold text-white">{locale === "th" ? "รวม 12 เดือน" : "12-month total"}</td>
                   <td className="px-5 py-3 text-right text-sm font-bold text-white">
                     {formatPrice(summary.totalRevenue)}
                   </td>

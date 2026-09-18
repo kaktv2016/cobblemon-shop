@@ -5,15 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { AdminBadge } from "@/components/admin/admin-badge";
 import { Plus, Edit, Trash2, X, Loader2, Copy } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
 
 interface DeliveryTemplate {
   id: string;
   name: string;
   description: string | null;
   commandTemplate: string;
-  adapterType: string;
   isActive: boolean;
 }
 
@@ -21,7 +22,6 @@ interface FormData {
   name: string;
   description: string;
   commandTemplate: string;
-  adapterType: string;
   isActive: boolean;
 }
 
@@ -56,6 +56,8 @@ function renderPreview(template: string): string {
 }
 
 export default function DeliveryTemplatesPage() {
+  const { addToast } = useToast();
+  const { locale } = useAdminPreferences();
   const [templates, setTemplates] = useState<DeliveryTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -66,7 +68,6 @@ export default function DeliveryTemplatesPage() {
     name: "",
     description: "",
     commandTemplate: "",
-    adapterType: "PAPER",
     isActive: true,
   });
 
@@ -80,12 +81,11 @@ export default function DeliveryTemplatesPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/settings/delivery-templates");
-      if (res.ok) {
-        const data = await res.json();
-        setTemplates(data);
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to load delivery templates");
+      setTemplates(data);
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to load delivery templates" });
     } finally {
       setLoading(false);
     }
@@ -115,6 +115,7 @@ export default function DeliveryTemplatesPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const wasEditing = Boolean(editingId);
 
     if (!validateTemplate(formData.commandTemplate)) {
       return;
@@ -133,31 +134,38 @@ export default function DeliveryTemplatesPage() {
         body: JSON.stringify(formData),
       });
 
-      if (res.ok) {
-        fetchTemplates();
-        resetForm();
-        setShowForm(false);
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to save delivery template");
+      await fetchTemplates();
+      resetForm();
+      setShowForm(false);
+      addToast({ type: "success", message: wasEditing ? "Delivery template updated" : "Delivery template created" });
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to save delivery template" });
     } finally {
       setSaving(false);
     }
   }
 
   async function deleteTemplate(id: string) {
-    if (!confirm("Are you sure you want to delete this template?")) return;
+    if (!confirm(locale === "th" ? "ลบเทมเพลตนี้หรือไม่?" : "Are you sure you want to delete this template?")) return;
     try {
       const res = await fetch(
         `/api/admin/settings/delivery-templates/${id}`,
         { method: "DELETE" }
       );
 
-      if (res.ok) {
-        fetchTemplates();
+      const data = await res.json();
+      if (!res.ok) {
+        const affected = Array.isArray(data.affectedProducts)
+          ? data.affectedProducts.map((product: { name: string }) => product.name).join(", ")
+          : undefined;
+        throw new Error(affected ? `${data.error} Affected: ${affected}` : data.error || "Unable to delete template");
       }
+      await fetchTemplates();
+      addToast({ type: "success", message: "Delivery template deleted" });
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to delete template" });
     }
   }
 
@@ -169,11 +177,12 @@ export default function DeliveryTemplatesPage() {
         body: JSON.stringify({ isActive: !currentState }),
       });
 
-      if (res.ok) {
-        fetchTemplates();
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to update template status");
+      await fetchTemplates();
+      addToast({ type: "success", message: currentState ? "Template disabled" : "Template enabled" });
     } catch (err) {
-      console.error(err);
+      addToast({ type: "error", message: err instanceof Error ? err.message : "Unable to update template status" });
     }
   }
 
@@ -182,7 +191,6 @@ export default function DeliveryTemplatesPage() {
       name: template.name,
       description: template.description || "",
       commandTemplate: template.commandTemplate,
-      adapterType: template.adapterType,
       isActive: template.isActive,
     });
     setEditingId(template.id);
@@ -195,7 +203,6 @@ export default function DeliveryTemplatesPage() {
       name: "",
       description: "",
       commandTemplate: "",
-      adapterType: "PAPER",
       isActive: true,
     });
     setEditingId(null);
@@ -234,7 +241,7 @@ export default function DeliveryTemplatesPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     Template Name *
@@ -248,24 +255,6 @@ export default function DeliveryTemplatesPage() {
                     className="border-gray-700 bg-gray-900 text-white"
                     required
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Server Type *
-                  </label>
-                  <select
-                    value={formData.adapterType}
-                    onChange={(e) =>
-                      setFormData({ ...formData, adapterType: e.target.value })
-                    }
-                    className="w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white"
-                  >
-                    <option value="PAPER">Paper</option>
-                    <option value="SPIGOT">Spigot</option>
-                    <option value="BUKKIT">Bukkit</option>
-                    <option value="FABRIC">Fabric</option>
-                    <option value="FORGE">Forge</option>
-                  </select>
                 </div>
               </div>
 
@@ -399,15 +388,10 @@ export default function DeliveryTemplatesPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-semibold text-white">
-                          {template.name}
+                          <span data-admin-user-content>{template.name}</span>
                         </h3>
-                        <Badge className="border-gray-500/30 bg-gray-500/10 text-gray-300">
-                          {template.adapterType}
-                        </Badge>
                         {!template.isActive && (
-                          <Badge className="border-yellow-500/30 bg-yellow-500/10 text-yellow-300">
-                            Inactive
-                          </Badge>
+                          <AdminBadge tone="neutral">Inactive</AdminBadge>
                         )}
                       </div>
                       {template.description && (

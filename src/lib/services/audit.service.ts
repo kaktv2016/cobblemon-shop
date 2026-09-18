@@ -22,10 +22,36 @@ interface PaginatedResponse<T> {
 
 interface AuditLogFilters {
   userId?: string;
+  userEmail?: string;
   action?: string;
   target?: string;
   from?: Date;
   to?: Date;
+}
+
+function csvCell(value: unknown): string {
+  const text = value === null || value === undefined ? "" : String(value);
+  if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+export function convertAuditLogsToCSV(logs: any[]): string {
+  const headers = [
+    "ID", "User ID", "User Email", "Action", "Target", "Target ID",
+    "IP Address", "Created At", "Details",
+  ];
+  const rows = logs.map((log) => [
+    log.id,
+    log.userId,
+    log.userEmail,
+    log.action,
+    log.target,
+    log.targetId,
+    log.ipAddress,
+    new Date(log.createdAt).toISOString(),
+    log.details == null ? "" : JSON.stringify(log.details),
+  ]);
+  return [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
 }
 
 /**
@@ -90,17 +116,19 @@ export class AuditService {
       where.userId = filters.userId;
     }
 
+    if (filters.userEmail) {
+      where.userEmail = { contains: filters.userEmail };
+    }
+
     if (filters.action) {
       where.action = {
         contains: filters.action.toUpperCase(),
-        mode: "insensitive",
       };
     }
 
     if (filters.target) {
       where.target = {
         contains: filters.target.toUpperCase(),
-        mode: "insensitive",
       };
     }
 
@@ -149,7 +177,7 @@ export class AuditService {
         action: log.action,
         target: log.target,
         targetId: log.targetId,
-        details: log.details,
+        details: log.details ?? {},
         ipAddress: log.ipAddress || undefined,
         createdAt: new Date(log.createdAt),
       })),
@@ -193,17 +221,19 @@ export class AuditService {
       where.userId = filters.userId;
     }
 
+    if (filters.userEmail) {
+      where.userEmail = { contains: filters.userEmail };
+    }
+
     if (filters.action) {
       where.action = {
         contains: filters.action.toUpperCase(),
-        mode: "insensitive",
       };
     }
 
     if (filters.target) {
       where.target = {
         contains: filters.target.toUpperCase(),
-        mode: "insensitive",
       };
     }
 
@@ -225,55 +255,10 @@ export class AuditService {
     });
 
     if (format === "csv") {
-      return this.convertToCSV(logs);
+      return convertAuditLogsToCSV(logs);
     }
 
     return JSON.stringify(logs, null, 2);
   }
 
-  /**
-   * Convert audit logs to CSV format
-   */
-  private static convertToCSV(
-    logs: any[]
-  ): string {
-    const headers = [
-      "ID",
-      "User ID",
-      "User Email",
-      "Action",
-      "Target",
-      "Target ID",
-      "IP Address",
-      "Created At",
-    ];
-
-    const rows = logs.map((log) => [
-      log.id,
-      log.userId || "",
-      log.userEmail,
-      log.action,
-      log.target,
-      log.targetId,
-      log.ipAddress || "",
-      new Date(log.createdAt).toISOString(),
-    ]);
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) =>
-        row
-          .map((cell) => {
-            // Escape CSV cells
-            if (typeof cell === "string" && (cell.includes(",") || cell.includes('"'))) {
-              return `"${cell.replace(/"/g, '""')}"`;
-            }
-            return cell;
-          })
-          .join(",")
-      ),
-    ].join("\n");
-
-    return csvContent;
-  }
 }

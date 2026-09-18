@@ -124,7 +124,7 @@ export interface PaymentProvider {
  * Factory function to get the appropriate payment provider based on environment
  *
  * Environment variables:
- * - PAYMENT_PROVIDER: 'stripe' | 'sandbox' | 'promptpay' (default: 'sandbox')
+ * - PAYMENT_PROVIDER: 'stripe' (or 'sandbox' outside production)
  * - For Stripe:
  *   - STRIPE_SECRET_KEY: Stripe secret API key
  *   - STRIPE_WEBHOOK_SECRET: Stripe webhook signing secret
@@ -134,7 +134,7 @@ export interface PaymentProvider {
  *   - (No additional config required)
  */
 export function getPaymentProvider(): PaymentProvider {
-  const provider = (process.env.PAYMENT_PROVIDER || 'sandbox').toLowerCase();
+  const provider = (process.env.PAYMENT_PROVIDER || 'stripe').toLowerCase();
 
   switch (provider) {
     case 'stripe':
@@ -142,26 +142,20 @@ export function getPaymentProvider(): PaymentProvider {
       const { StripePaymentProvider } = require('./stripe');
       return new StripePaymentProvider();
 
-    case 'promptpay':
-      const { PromptPayProvider } = require('./promptpay');
-      return new PromptPayProvider();
-
-    case 'gbprimepay':
-      const { GBPrimePayProvider } = require('./gbprimepay');
-      return new GBPrimePayProvider();
-
-    case 'xendit':
-      const { XenditProvider } = require('./xendit');
-      return new XenditProvider();
-
-    case 'omise':
-      const { OmiseProvider } = require('./omise');
-      return new OmiseProvider();
-
     case 'sandbox':
-    default:
-      // Lazy load to avoid import errors if dependencies aren't installed
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Sandbox payments are disabled in production');
+      }
       const { SandboxPaymentProvider } = require('./sandbox');
       return new SandboxPaymentProvider();
+
+    case 'promptpay':
+    case 'gbprimepay':
+    case 'xendit':
+    case 'omise':
+      throw new Error(`${provider} is legacy-only and cannot create new payments`);
+
+    default:
+      throw new Error(`Unsupported PAYMENT_PROVIDER: ${provider}`);
   }
 }

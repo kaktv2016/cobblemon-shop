@@ -62,8 +62,16 @@ export const CategoryFormSchema = z.object({
   name: z.string().min(1, "Category name is required").max(255),
   slug: z.string().min(1, "Slug is required").max(255),
   description: z.string(),
+  imageUrl: imageReferenceSchema.optional().or(z.literal("")),
+  parentId: z.string().optional().nullable().or(z.literal("")),
   sortOrder: z.number().min(0).optional(),
   isActive: z.boolean(),
+});
+
+export const CategoryReorderSchema = z.object({
+  orderedIds: z.array(z.string().min(1)).min(1),
+}).refine((value) => new Set(value.orderedIds).size === value.orderedIds.length, {
+  path: ["orderedIds"], message: "Duplicate category IDs are not allowed",
 });
 
 export const WikiCategoryFormSchema = z.object({

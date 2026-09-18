@@ -95,7 +95,8 @@ function ToastContainer() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`pointer-events-auto animate-in fade-in slide-in-from-right-10 flex items-start gap-3 rounded-lg border px-4 py-3 max-w-sm ${getStyles(toast.type)}`}
+          className={`ui-toast pointer-events-auto animate-in fade-in slide-in-from-right-10 flex items-start gap-3 rounded-lg border px-4 py-3 max-w-sm ${getStyles(toast.type)}`}
+          data-toast-type={toast.type}
           role="alert"
         >
           {getIcon(toast.type)}

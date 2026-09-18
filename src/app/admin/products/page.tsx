@@ -5,20 +5,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { AdminStatusBadge } from "@/components/admin/admin-badge";
 import { Plus, Search, Edit, Eye, Loader2 } from "lucide-react";
-
-function formatPrice(price: any): string {
-  return `฿${Number(price).toLocaleString()}`;
-}
-
-const visibilityColors: Record<string, string> = {
-  PUBLIC: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
-  DRAFT: "border-gray-500/30 bg-gray-500/10 text-gray-400",
-  HIDDEN: "border-amber-500/30 bg-amber-500/10 text-amber-400",
-};
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
 
 export default function AdminProductsPage() {
+  const { formatCurrency } = useAdminPreferences();
   const [products, setProducts] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -103,29 +95,27 @@ export default function AdminProductsPage() {
                     <tr key={product.id} className="hover:bg-gray-800/20 transition-colors">
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-medium text-white">{product.name}</p>
-                          <p className="text-xs text-gray-500">{product.slug}</p>
+                          <p className="font-medium text-white" data-admin-user-content>{product.name}</p>
+                          <p className="text-xs text-gray-500" data-admin-user-content>{product.slug}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-300">
-                        {product.category?.name}
+                        <span data-admin-user-content>{product.category?.name}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div>
                           <span className="font-medium text-white">
-                            {formatPrice(product.price)}
+                            {formatCurrency(Number(product.price))}
                           </span>
                           {product.compareAtPrice && (
                             <span className="ml-2 text-xs text-gray-500 line-through">
-                              {formatPrice(product.compareAtPrice)}
+                              {formatCurrency(Number(product.compareAtPrice))}
                             </span>
                           )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <Badge className={visibilityColors[product.visibility] || ""}>
-                          {product.visibility}
-                        </Badge>
+                        <AdminStatusBadge status={product.visibility} />
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-400">
                         {product._count?.orderItems || 0}

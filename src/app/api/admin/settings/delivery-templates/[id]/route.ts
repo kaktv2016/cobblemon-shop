@@ -82,6 +82,33 @@ export async function DELETE(
   try {
     const { id } = await params;
 
+    const [commandReferences, legacyReferences] = await prisma.$transaction([
+      prisma.productDeliveryCommand.findMany({
+        where: { templateId: id },
+        select: { product: { select: { id: true, name: true, slug: true } } },
+        distinct: ["productId"],
+      }),
+      prisma.product.findMany({
+        where: { deliveryTemplateId: id },
+        select: { id: true, name: true, slug: true },
+      }),
+    ]);
+    const affectedProducts = Array.from(
+      new Map(
+        [...commandReferences.map(({ product }) => product), ...legacyReferences]
+          .map((product) => [product.id, product])
+      ).values()
+    );
+    if (affectedProducts.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Template is used by ${affectedProducts.length} product(s). Replace those commands before deleting it.`,
+          affectedProducts,
+        },
+        { status: 409 }
+      );
+    }
+
     await prisma.deliveryTemplate.delete({
       where: { id },
     });

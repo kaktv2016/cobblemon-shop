@@ -1,192 +1,126 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Loader2, Server, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 
-interface Settings {
+type Settings = {
   shopName: string;
   shopDescription: string;
-  currency: string;
-  deliveryMode: string;
+  currency: "THB";
   maintenanceMode: boolean;
-}
+  maintenanceMessage: string;
+};
+
+const initialSettings: Settings = {
+  shopName: "",
+  shopDescription: "",
+  currency: "THB",
+  maintenanceMode: false,
+  maintenanceMessage: "",
+};
 
 export default function GeneralSettingsPage() {
-  const [settings, setSettings] = useState<Settings>({
-    shopName: "Cobblemon Shop",
-    shopDescription: "The official Cobblemon webshop",
-    currency: "THB",
-    deliveryMode: "webhook",
-    maintenanceMode: false,
-  });
-
+  const [settings, setSettings] = useState(initialSettings);
+  const [delivery, setDelivery] = useState({ mode: "dry-run", rconConfigured: false });
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    fetch("/api/admin/settings/general")
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || "Unable to load settings");
+        setSettings({
+          ...body.settings,
+          maintenanceMessage: body.settings.maintenanceMessage || "",
+        });
+        setDelivery(body.delivery);
+      })
+      .catch((error) => addToast({ type: "error", message: error.message }))
+      .finally(() => setLoading(false));
+  }, [addToast]);
 
   async function handleSave() {
     setSaving(true);
     try {
-      // In a real deployment, this would save to the database
-      // For now, we'll just show a success message
-      console.log("Saving settings:", settings);
-      setTimeout(() => setSaving(false), 500);
-    } catch (err) {
-      console.error(err);
+      const response = await fetch("/api/admin/settings/general", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Unable to save settings");
+      setSettings({ ...body.settings, maintenanceMessage: body.settings.maintenanceMessage || "" });
+      addToast({ type: "success", message: "Settings saved" });
+    } catch (error) {
+      addToast({ type: "error", message: error instanceof Error ? error.message : "Unable to save settings" });
+    } finally {
       setSaving(false);
     }
+  }
+
+  if (loading) {
+    return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-indigo-400" /></div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-outfit text-3xl font-bold text-white">General Settings</h1>
-        <p className="mt-1 text-gray-400">Configure your shop</p>
+        <p className="mt-1 text-gray-400">Configure the public shop and maintenance state.</p>
       </div>
 
+      <Card className="space-y-6 border-gray-800/50 bg-gray-900/50 p-6">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-300">Shop Name</label>
+          <Input value={settings.shopName} onChange={(event) => setSettings({ ...settings, shopName: event.target.value })} className="max-w-md border-gray-700 bg-gray-950 text-white" />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-300">Shop Description</label>
+          <Textarea value={settings.shopDescription} onChange={(event) => setSettings({ ...settings, shopDescription: event.target.value })} rows={3} className="border-gray-700 bg-gray-950 text-white" />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-300">Currency</label>
+          <Input value="THB — Thai Baht" readOnly className="max-w-xs border-gray-700 bg-gray-950 text-gray-400" />
+          <p className="mt-1 text-xs text-gray-500">Stripe PromptPay requires THB.</p>
+        </div>
+        <div className="border-t border-gray-800 pt-6">
+          <label className="flex items-center justify-between gap-4">
+            <span>
+              <span className="block text-sm font-medium text-gray-300">Maintenance Mode</span>
+              <span className="mt-1 block text-xs text-gray-500">Disables store, cart, checkout and commerce mutations.</span>
+            </span>
+            <input type="checkbox" checked={settings.maintenanceMode} onChange={(event) => setSettings({ ...settings, maintenanceMode: event.target.checked })} className="h-5 w-5 rounded border-gray-700 bg-gray-950" />
+          </label>
+          <Textarea value={settings.maintenanceMessage} onChange={(event) => setSettings({ ...settings, maintenanceMessage: event.target.value })} rows={2} className="mt-4 border-gray-700 bg-gray-950 text-white" placeholder="Maintenance message shown to players" />
+        </div>
+      </Card>
+
       <Card className="border-gray-800/50 bg-gray-900/50 p-6">
-        <div className="space-y-6">
-          {/* Shop Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Shop Name
-            </label>
-            <Input
-              value={settings.shopName}
-              onChange={(e) =>
-                setSettings({ ...settings, shopName: e.target.value })
-              }
-              className="border-gray-700 bg-gray-900 text-white max-w-md"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              The name of your shop displayed to customers
-            </p>
-          </div>
-
-          {/* Shop Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Shop Description
-            </label>
-            <Textarea
-              value={settings.shopDescription}
-              onChange={(e) =>
-                setSettings({ ...settings, shopDescription: e.target.value })
-              }
-              rows={4}
-              className="border-gray-700 bg-gray-900 text-white"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Short description of your shop
-            </p>
-          </div>
-
-          {/* Currency */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Currency
-            </label>
-            <select
-              value={settings.currency}
-              onChange={(e) =>
-                setSettings({ ...settings, currency: e.target.value })
-              }
-              className="w-full md:w-48 rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white"
-            >
-              <option value="THB">Thai Baht (฿)</option>
-              <option value="USD">US Dollar ($)</option>
-              <option value="EUR">Euro (€)</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              The currency used for all prices
-            </p>
-          </div>
-
-          {/* Delivery Mode */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Delivery Mode
-            </label>
-            <select
-              value={settings.deliveryMode}
-              onChange={(e) =>
-                setSettings({ ...settings, deliveryMode: e.target.value })
-              }
-              className="w-full md:w-48 rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white"
-            >
-              <option value="dry-run">Dry Run (test mode)</option>
-              <option value="webhook">Webhook</option>
-              <option value="rcon">RCON</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              How order deliveries are executed
-            </p>
-          </div>
-
-          {/* Maintenance Mode */}
-          <div className="border-t border-gray-700 pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Maintenance Mode
-                </label>
-                <p className="text-xs text-gray-500">
-                  Temporarily disable the shop for maintenance
-                </p>
-              </div>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={settings.maintenanceMode}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      maintenanceMode: e.target.checked,
-                    })
-                  }
-                  className="w-5 h-5 rounded border-gray-700 bg-gray-900"
-                />
-                <span className="text-sm font-medium text-gray-400">
-                  {settings.maintenanceMode ? "Enabled" : "Disabled"}
-                </span>
-              </label>
+        <div className="flex items-start gap-4">
+          <Server className="mt-1 h-5 w-5 text-cyan-300" />
+          <div className="flex-1">
+            <h2 className="font-semibold text-white">Delivery Runtime</h2>
+            <p className="mt-1 text-sm text-gray-400">Controlled by deployment environment and read-only here.</p>
+            <div className="mt-4 flex flex-wrap gap-3 text-sm">
+              <span className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-300">Mode: {delivery.mode}</span>
+              <span className={`rounded-lg border px-3 py-2 ${delivery.rconConfigured ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-amber-500/30 bg-amber-500/10 text-amber-300"}`}>
+                <ShieldCheck className="mr-2 inline h-4 w-4" />RCON {delivery.rconConfigured ? "configured" : "incomplete"}
+              </span>
             </div>
-          </div>
-
-          {/* Info Box */}
-          <div className="border-l-4 border-amber-500 bg-amber-500/10 p-4 rounded">
-            <p className="text-sm text-amber-300">
-              Note: In a production environment, these settings would be persisted to the
-              database. Currently, they are stored locally in the browser session.
-            </p>
           </div>
         </div>
       </Card>
 
-      {/* Save Button */}
-      <div className="flex gap-4 justify-end">
-        <Button
-          variant="outline"
-          className="border-gray-700"
-          onClick={() => window.history.back()}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2"
-        >
-          {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            "Save Changes"
-          )}
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={saving || !settings.shopName.trim()} className="bg-indigo-600 hover:bg-indigo-700">
+          {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : "Save Changes"}
         </Button>
       </div>
     </div>

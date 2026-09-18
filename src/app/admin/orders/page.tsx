@@ -3,25 +3,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { AdminStatusBadge } from "@/components/admin/admin-badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Loader2, ExternalLink, ChevronDown } from "lucide-react";
-
-function formatPrice(price: any): string {
-  return `฿${Number(price).toLocaleString()}`;
-}
-
-const statusColors: Record<string, string> = {
-  PENDING_PAYMENT: "border-amber-500/30 bg-amber-500/10 text-amber-400",
-  PAID: "border-indigo-500/30 bg-indigo-500/10 text-indigo-400",
-  QUEUED_DELIVERY: "border-purple-500/30 bg-purple-500/10 text-purple-400",
-  DELIVERED: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
-  PARTIALLY_DELIVERED: "border-yellow-500/30 bg-yellow-500/10 text-yellow-400",
-  FAILED_DELIVERY: "border-red-500/30 bg-red-500/10 text-red-400",
-  REFUNDED: "border-gray-500/30 bg-gray-500/10 text-gray-400",
-  CANCELED: "border-gray-500/30 bg-gray-500/10 text-gray-400",
-};
+import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
 
 const statusOptions = [
   { value: "", label: "All Statuses" },
@@ -35,6 +21,7 @@ const statusOptions = [
 ];
 
 export default function AdminOrdersPage() {
+  const { formatCurrency, formatDate } = useAdminPreferences();
   const [orders, setOrders] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -134,15 +121,13 @@ export default function AdminOrdersPage() {
                         {order.items?.length || 0} items
                       </td>
                       <td className="px-6 py-4 text-sm font-medium text-white">
-                        {formatPrice(order.total)}
+                        {formatCurrency(Number(order.total))}
                       </td>
                       <td className="px-6 py-4">
-                        <Badge className={statusColors[order.status] || "bg-gray-500/10 text-gray-400"}>
-                          {order.status.replace(/_/g, " ")}
-                        </Badge>
+                        <AdminStatusBadge status={order.status} />
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(order.createdAt).toLocaleDateString()}
+                        {formatDate(order.createdAt)}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <Button asChild variant="ghost" size="sm">

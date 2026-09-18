@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { productDeliveryCommandsSchema } from "@/lib/validators/product-delivery-command";
 
 function normalizeTagList(tags: unknown) {
   if (!Array.isArray(tags)) {
@@ -41,6 +42,7 @@ export async function GET(
       category: true,
       tags: true,
       deliveryTemplate: true,
+      deliveryCommands: { orderBy: { sequence: "asc" }, include: { template: true } },
       bundleItems: { include: { item: { select: { id: true, name: true, price: true } } } },
     },
   });
@@ -68,6 +70,18 @@ export async function PUT(
     const body = await request.json();
     const tags = normalizeTagList(body.tags);
     const bundleItems = normalizeBundleItems(body.bundleItems);
+    const deliveryCommands = productDeliveryCommandsSchema.parse(
+      Array.isArray(body.deliveryCommands)
+        ? body.deliveryCommands
+        : body.deliveryTemplateId
+          ? [{ kind: "TEMPLATE", templateId: body.deliveryTemplateId }]
+          : []
+    );
+    const templateIds = deliveryCommands.flatMap((command) => command.kind === "TEMPLATE" && command.templateId ? [command.templateId] : []);
+    if (templateIds.length) {
+      const activeTemplates = await prisma.deliveryTemplate.count({ where: { id: { in: templateIds }, isActive: true } });
+      if (activeTemplates !== new Set(templateIds).size) throw new Error("One or more delivery templates are missing or inactive");
+    }
 
     const product = await prisma.$transaction(async (tx) => {
       const updatedProduct = await tx.product.update({
@@ -91,11 +105,24 @@ export async function PUT(
           cooldownMinutes: body.cooldownMinutes ?? null,
           startDate: body.startDate ? new Date(body.startDate) : null,
           endDate: body.endDate ? new Date(body.endDate) : null,
-          deliveryTemplateId: body.deliveryTemplateId || null,
+          deliveryTemplateId: templateIds[0] || null,
           metadata: body.metadata || null,
           sortOrder: body.sortOrder || 0,
         },
       });
+
+      await tx.productDeliveryCommand.deleteMany({ where: { productId: id } });
+      if (deliveryCommands.length > 0) {
+        await tx.productDeliveryCommand.createMany({
+          data: deliveryCommands.map((command, sequence) => ({
+            productId: id,
+            sequence,
+            kind: command.kind,
+            templateId: command.kind === "TEMPLATE" ? command.templateId : null,
+            commandTemplate: command.kind === "CUSTOM" ? command.commandTemplate : null,
+          })),
+        });
+      }
 
       await tx.productTag.deleteMany({
         where: { productId: id },

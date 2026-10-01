@@ -1,6 +1,7 @@
 "use client";
 
 import { signOut } from "next-auth/react";
+import { logoutOnCurrentOrigin } from "@/lib/auth/logout";
 import { Bell, Languages, LogOut, Moon, Sun, User } from "lucide-react";
 import { useState } from "react";
 import { useAdminPreferences } from "@/components/admin/admin-preferences-provider";
@@ -16,7 +17,9 @@ export function AdminHeader({ userEmail, username }: AdminHeaderProps) {
   const { locale, setLocale, theme, setTheme, t } = useAdminPreferences();
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/login" });
+    await logoutOnCurrentOrigin(signOut, (destination) => {
+      window.location.assign(destination);
+    });
   };
 
   return (

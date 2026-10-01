@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
+import { logoutOnCurrentOrigin } from '@/lib/auth/logout';
 import {
   BookOpen,
   Download,
@@ -47,6 +48,12 @@ export function StoreNavbar({ shopName = "Cobblemon Divided" }: { shopName?: str
   const { data: session, status } = useSession();
   const router = useRouter();
   const { count: cartCount } = useCart();
+
+  const handleLogout = async () => {
+    await logoutOnCurrentOrigin(signOut, (destination) => {
+      window.location.assign(destination);
+    });
+  };
 
   useEffect(() => {
     const prefetchAll = () => {
@@ -194,7 +201,7 @@ export function StoreNavbar({ shopName = "Cobblemon Divided" }: { shopName?: str
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-rose-200 hover:bg-rose-500/10 hover:text-white"
-                    onSelect={() => signOut({ callbackUrl: '/' })}
+                    onSelect={() => void handleLogout()}
                   >
                     ออกจากระบบ
                   </DropdownMenuItem>
